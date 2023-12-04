@@ -19,7 +19,7 @@ type UploadListItem struct {
 }
 
 type UploadListFailure struct {
-  name String
+  name optional String
   message String
-  stack String
+  stack optional String
 }

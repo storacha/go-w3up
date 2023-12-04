@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"net/url"
 	"os"
 
 	"github.com/urfave/cli/v2"
@@ -12,12 +11,9 @@ import (
 	"github.com/web3-storage/go-ucanto/core/invocation"
 	"github.com/web3-storage/go-ucanto/core/receipt"
 	"github.com/web3-storage/go-ucanto/did"
-	"github.com/web3-storage/go-ucanto/principal"
-	"github.com/web3-storage/go-ucanto/principal/ed25519/signer"
-	"github.com/web3-storage/go-ucanto/transport/car"
-	"github.com/web3-storage/go-ucanto/transport/http"
 	"github.com/web3-storage/go-ucanto/ucan"
 	"github.com/web3-storage/go-w3up/capability"
+	"github.com/web3-storage/go-w3up/cmd/lib"
 )
 
 func main() {
@@ -62,14 +58,14 @@ func main() {
 }
 
 func whoami(cCtx *cli.Context) error {
-	s := mustGetSignerFromEnv()
+	s := lib.MustGetSigner()
 	fmt.Println(s.DID())
 	return nil
 }
 
 func ls(cCtx *cli.Context) error {
-	signer := mustGetSignerFromEnv()
-	conn := mustGetConnection()
+	signer := lib.MustGetSigner()
+	conn := lib.MustGetConnection()
 	space, err := did.Parse(cCtx.String("space"))
 	if err != nil {
 		return err
@@ -141,40 +137,4 @@ func ls(cCtx *cli.Context) error {
 	}
 
 	return nil
-}
-
-func mustGetSignerFromEnv() principal.Signer {
-	str := os.Getenv("W3UP_PRIVATE_KEY")
-	if str == "" {
-		panic("missing W3UP_PRIVATE_KEY env var")
-	}
-	s, err := signer.Parse(str)
-	if err != nil {
-		log.Fatal(err)
-	}
-	return s
-}
-
-func mustGetConnection() client.Connection {
-	// service URL & DID
-	serviceURL, err := url.Parse("https://up.web3.storage")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	servicePrincipal, _ := did.Parse("did:web:web3.storage")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// HTTP transport and CAR encoding
-	channel := http.NewHTTPChannel(serviceURL)
-	codec := car.NewCAROutboundCodec()
-
-	conn, err := client.NewConnection(servicePrincipal, codec, channel)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	return conn
 }
