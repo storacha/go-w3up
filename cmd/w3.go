@@ -6,13 +6,9 @@ import (
 	"os"
 
 	"github.com/urfave/cli/v2"
-	"github.com/web3-storage/go-ucanto/client"
 	"github.com/web3-storage/go-ucanto/core/delegation"
-	"github.com/web3-storage/go-ucanto/core/invocation"
-	"github.com/web3-storage/go-ucanto/core/receipt"
-	"github.com/web3-storage/go-ucanto/did"
-	"github.com/web3-storage/go-ucanto/ucan"
-	"github.com/web3-storage/go-w3up/capability"
+	"github.com/web3-storage/go-w3up/capability/uploadlist"
+	"github.com/web3-storage/go-w3up/client"
 	"github.com/web3-storage/go-w3up/cmd/lib"
 )
 
@@ -66,59 +62,16 @@ func whoami(cCtx *cli.Context) error {
 func ls(cCtx *cli.Context) error {
 	signer := lib.MustGetSigner()
 	conn := lib.MustGetConnection()
-	space, err := did.Parse(cCtx.String("space"))
-	if err != nil {
-		return err
-	}
+	space := lib.MustParseDID(cCtx.String("space"))
+	proof := lib.MustGetProof(cCtx.String("proof"))
 
-	bytes, err := os.ReadFile(cCtx.String("proof"))
-	if err != nil {
-		return err
-	}
-
-	proof, err := delegation.Extract(bytes)
-	if err != nil {
-		return err
-	}
-
-	cap := ucan.NewCapability(
-		"upload/list",
-		space.String(),
-		ucan.MapBuilder(&capability.UploadListCaveat{}),
-	)
-
-	inv, err := invocation.Invoke(
+	rcpt, err := client.List(
 		signer,
-		conn.ID(),
-		cap,
-		delegation.WithProofs([]delegation.Delegation{proof}),
+		space,
+		&uploadlist.Caveat{},
+		client.WithConnection(conn),
+		client.WithProofs([]delegation.Delegation{proof}),
 	)
-	if err != nil {
-		return err
-	}
-
-	// send the invocation(s) to the service
-	resp, err := client.Execute([]invocation.Invocation{inv}, conn)
-	if err != nil {
-		return err
-	}
-
-	reader, err := receipt.NewReceiptReader[*capability.UploadListSuccess, *capability.UploadListFailure](capability.UploadSchema)
-	if err != nil {
-		return err
-	}
-
-	// get the receipt link for the invocation from the response
-	rcptlnk, ok := resp.Get(inv.Link())
-	if err != nil {
-		return err
-	}
-	if !ok {
-		return fmt.Errorf("receipt not found: %s", inv.Link())
-	}
-
-	// read the receipt for the invocation from the response
-	rcpt, err := reader.Read(rcptlnk, resp.Blocks())
 	if err != nil {
 		return err
 	}

@@ -1,4 +1,4 @@
-package capability
+package uploadlist
 
 import (
 	_ "embed"
@@ -6,36 +6,8 @@ import (
 	"sync"
 
 	"github.com/ipld/go-ipld-prime"
-	"github.com/ipld/go-ipld-prime/datamodel"
-	"github.com/ipld/go-ipld-prime/node/basicnode"
 	"github.com/ipld/go-ipld-prime/schema"
 )
-
-type UploadListCaveat struct {
-	Cursor string
-	Size   int64
-	Pre    bool
-}
-
-func (c *UploadListCaveat) Build() (map[string]datamodel.Node, error) {
-	data := map[string]datamodel.Node{}
-	if c.Cursor != "" {
-		b := basicnode.Prototype.String.NewBuilder()
-		b.AssignString(c.Cursor)
-		data["cursor"] = b.Build()
-	}
-	if c.Size != 0 {
-		b := basicnode.Prototype.Int.NewBuilder()
-		b.AssignInt(c.Size)
-		data["size"] = b.Build()
-	}
-	if c.Pre {
-		b := basicnode.Prototype.Bool.NewBuilder()
-		b.AssignBool(c.Pre)
-		data["pre"] = b.Build()
-	}
-	return data, nil
-}
 
 //go:embed upload.ipldsch
 var UploadSchema []byte
@@ -76,7 +48,7 @@ type UploadListItem struct {
 }
 
 type UploadListFailure struct {
-	Name    string
+	Name    *string
 	Message string
-	Stack   string
+	Stack   *string
 }

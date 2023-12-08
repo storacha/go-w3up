@@ -1,7 +1,10 @@
 package lib
 
 import (
+	"bytes"
 	_ "embed"
+	"fmt"
+	"io"
 	"log"
 	"net/url"
 	"os"
@@ -11,6 +14,10 @@ import (
 	"github.com/ipld/go-ipld-prime/codec/dagcbor"
 	"github.com/ipld/go-ipld-prime/schema"
 	"github.com/web3-storage/go-ucanto/client"
+	archive "github.com/web3-storage/go-ucanto/core/car"
+	"github.com/web3-storage/go-ucanto/core/dag/blockstore"
+	"github.com/web3-storage/go-ucanto/core/delegation"
+	"github.com/web3-storage/go-ucanto/core/ipld/block"
 	"github.com/web3-storage/go-ucanto/did"
 	"github.com/web3-storage/go-ucanto/principal"
 	"github.com/web3-storage/go-ucanto/principal/ed25519/signer"
@@ -97,7 +104,7 @@ func MustGetConnection() client.Connection {
 		log.Fatal(err)
 	}
 
-	servicePrincipal, _ := did.Parse("did:web:web3.storage")
+	servicePrincipal, err := did.Parse("did:web:web3.storage")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -112,4 +119,52 @@ func MustGetConnection() client.Connection {
 	}
 
 	return conn
+}
+
+func MustParseDID(str string) did.DID {
+	did, err := did.Parse(str)
+	if err != nil {
+		log.Fatal(fmt.Errorf("parsing DID: %s", err))
+	}
+	return did
+}
+
+func MustGetProof(path string) delegation.Delegation {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		log.Fatal(fmt.Errorf("reading proof file: %s", err))
+	}
+
+	proof, err := delegation.Extract(b)
+	if err != nil {
+		// try decode legacy format
+		_, blocks, err := archive.Decode(bytes.NewReader(b))
+		if err != nil {
+			log.Fatal(fmt.Errorf("extracting proof: %s", err))
+		}
+
+		var rt block.Block
+		bs, err := blockstore.NewBlockStore()
+		if err != nil {
+			log.Fatal(fmt.Errorf("creating blockstore: %s", err))
+		}
+		for {
+			bl, err := blocks.Next()
+			if err != nil {
+				if err == io.EOF {
+					break
+				}
+				log.Fatal(fmt.Errorf("reading block: %s", err))
+			}
+			err = bs.Put(bl)
+			if err != nil {
+				log.Fatal(fmt.Errorf("putting block: %s", err))
+			}
+			rt = bl
+		}
+
+		proof = delegation.NewDelegation(rt, bs)
+	}
+
+	return proof
 }
