@@ -1,6 +1,6 @@
 module github.com/web3-storage/go-w3up
 
-go 1.21.4
+go 1.21
 
 require (
 	github.com/ipld/go-ipld-prime v0.21.0
