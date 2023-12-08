@@ -61,9 +61,10 @@ USAGE:
    w3 [global options] command [command options] [arguments...]
 
 COMMANDS:
-   whoami    Print information about the current agent.
-   ls, list  List uploads in the current space.
-   help, h   Shows a list of commands or help for one command
+   whoami      Print information about the current agent.
+   up, upload  Store a file(s) to the service and register an upload.
+   ls, list    List uploads in the current space.
+   help, h     Shows a list of commands or help for one command
 
 GLOBAL OPTIONS:
    --help, -h  show help

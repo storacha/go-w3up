@@ -157,18 +157,18 @@ func up(cCtx *cli.Context) error {
 		}
 
 		hr.Header = hdr
+		hr.ContentLength = stat.Size()
 		httpClient := http.Client{}
 		res, err := httpClient.Do(hr)
 		if err != nil {
 			log.Fatalf("doing HTTP request: %s", err)
 		}
-		fmt.Printf("%+v\n", res.Header)
 		if res.StatusCode != 200 {
 			log.Fatalf("non-200 status code while uploading file: %d", res.StatusCode)
 		}
-		err = f2.Close()
+		err = res.Body.Close()
 		if err != nil {
-			log.Fatalf("closing file: %s", err)
+			log.Fatalf("closing request body: %s", err)
 		}
 	}
 
@@ -202,7 +202,7 @@ func up(cCtx *cli.Context) error {
 			log.Fatalf("%+v\n", rcpt.Out().Error())
 		}
 
-		fmt.Printf("⁂ https://w3s.link/ipfs/%s", roots[0])
+		fmt.Printf("⁂ https://w3s.link/ipfs/%s\n", roots[0])
 	}
 
 	return nil
