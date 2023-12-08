@@ -1,24 +1,24 @@
 type Result union {
-  | UploadListSuccess "ok"
-  | UploadListFailure "error"
+  | Success "ok"
+  | Failure "error"
 } representation keyed
 
-type UploadListSuccess struct {
-  results [UploadListItem]
+type Success struct {
+  results [Item]
   cursor optional String
   before optional String
   after optional String
   size Int
 }
 
-type UploadListItem struct {
+type Item struct {
   root Link
   shards optional [Link]
   insertedAt String
   updatedAt String
 }
 
-type UploadListFailure struct {
+type Failure struct {
   name optional String
   message String
   stack optional String

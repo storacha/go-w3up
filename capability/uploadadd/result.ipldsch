@@ -1,0 +1,15 @@
+type Result union {
+  | Success "ok"
+  | Failure "error"
+} representation keyed
+
+type Success struct {
+  root Link
+  shards optional [Link]
+}
+
+type Failure struct {
+  name optional String
+  message String
+  stack optional String
+}

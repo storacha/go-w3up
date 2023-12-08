@@ -38,7 +38,7 @@ proof, _ := delegation.Extract(b)
 // space to list uploads from
 space, _ := did.Parse("did:key:z6MkwDuRThQcyWjqNsK54yKAmzfsiH6BTkASyiucThMtHt1y")
 
-rcpt, _ := client.List(
+rcpt, _ := client.UploadList(
    signer,
    space,
    &uploadlist.Caveat{},

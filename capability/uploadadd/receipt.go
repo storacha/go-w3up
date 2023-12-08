@@ -1,4 +1,4 @@
-package uploadlist
+package uploadadd
 
 import "github.com/web3-storage/go-ucanto/core/receipt"
 

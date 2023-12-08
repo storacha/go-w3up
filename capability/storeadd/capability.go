@@ -1,48 +1,49 @@
-package uploadlist
+package storeadd
 
 import (
+	"github.com/ipld/go-ipld-prime"
 	"github.com/ipld/go-ipld-prime/datamodel"
 	"github.com/ipld/go-ipld-prime/node/basicnode"
 	"github.com/web3-storage/go-ucanto/did"
 	"github.com/web3-storage/go-ucanto/ucan"
 )
 
-const Ability = "upload/list"
+const Ability = "store/add"
 
 type Caveat struct {
-	Cursor string
-	Size   int64
-	Pre    bool
+	Link   ipld.Link
+	Size   uint64
+	Origin *ipld.Link
 }
 
 var _ ucan.MapBuilder = (*Caveat)(nil)
 
 func (c *Caveat) Build() (map[string]datamodel.Node, error) {
 	data := map[string]datamodel.Node{}
-	if c.Cursor != "" {
-		b := basicnode.Prototype.String.NewBuilder()
-		err := b.AssignString(c.Cursor)
+
+	b := basicnode.Prototype.Link.NewBuilder()
+	err := b.AssignLink(c.Link)
+	if err != nil {
+		return nil, err
+	}
+	data["link"] = b.Build()
+
+	b = basicnode.Prototype.Int.NewBuilder()
+	err = b.AssignInt(int64(c.Size))
+	if err != nil {
+		return nil, err
+	}
+	data["size"] = b.Build()
+
+	if c.Origin != nil {
+		b = basicnode.Prototype.Link.NewBuilder()
+		err = b.AssignLink(c.Link)
 		if err != nil {
 			return nil, err
 		}
-		data["cursor"] = b.Build()
+		data["origin"] = b.Build()
 	}
-	if c.Size != 0 {
-		b := basicnode.Prototype.Int.NewBuilder()
-		err := b.AssignInt(c.Size)
-		if err != nil {
-			return nil, err
-		}
-		data["size"] = b.Build()
-	}
-	if c.Pre {
-		b := basicnode.Prototype.Bool.NewBuilder()
-		err := b.AssignBool(c.Pre)
-		if err != nil {
-			return nil, err
-		}
-		data["pre"] = b.Build()
-	}
+
 	return data, nil
 }
 

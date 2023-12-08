@@ -3,7 +3,6 @@ package lib
 import (
 	"bytes"
 	_ "embed"
-	"fmt"
 	"io"
 	"log"
 	"net/url"
@@ -124,7 +123,7 @@ func MustGetConnection() client.Connection {
 func MustParseDID(str string) did.DID {
 	did, err := did.Parse(str)
 	if err != nil {
-		log.Fatal(fmt.Errorf("parsing DID: %s", err))
+		log.Fatalf("parsing DID: %s", err)
 	}
 	return did
 }
@@ -132,7 +131,7 @@ func MustParseDID(str string) did.DID {
 func MustGetProof(path string) delegation.Delegation {
 	b, err := os.ReadFile(path)
 	if err != nil {
-		log.Fatal(fmt.Errorf("reading proof file: %s", err))
+		log.Fatalf("reading proof file: %s", err)
 	}
 
 	proof, err := delegation.Extract(b)
@@ -140,13 +139,13 @@ func MustGetProof(path string) delegation.Delegation {
 		// try decode legacy format
 		_, blocks, err := archive.Decode(bytes.NewReader(b))
 		if err != nil {
-			log.Fatal(fmt.Errorf("extracting proof: %s", err))
+			log.Fatalf("extracting proof: %s", err)
 		}
 
 		var rt block.Block
 		bs, err := blockstore.NewBlockStore()
 		if err != nil {
-			log.Fatal(fmt.Errorf("creating blockstore: %s", err))
+			log.Fatalf("creating blockstore: %s", err)
 		}
 		for {
 			bl, err := blocks.Next()
@@ -154,11 +153,11 @@ func MustGetProof(path string) delegation.Delegation {
 				if err == io.EOF {
 					break
 				}
-				log.Fatal(fmt.Errorf("reading block: %s", err))
+				log.Fatalf("reading block: %s", err)
 			}
 			err = bs.Put(bl)
 			if err != nil {
-				log.Fatal(fmt.Errorf("putting block: %s", err))
+				log.Fatalf("putting block: %s", err)
 			}
 			rt = bl
 		}
