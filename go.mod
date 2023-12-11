@@ -6,8 +6,9 @@ require (
 	github.com/ipfs/go-cid v0.4.1
 	github.com/ipld/go-ipld-prime v0.21.0
 	github.com/multiformats/go-multihash v0.2.3
+	github.com/multiformats/go-varint v0.0.7
 	github.com/urfave/cli/v2 v2.25.7
-	github.com/web3-storage/go-ucanto v0.0.0-20231204110944-5ed87819ca11
+	github.com/web3-storage/go-ucanto v0.0.0-20231211123132-55806bb24d2e
 )
 
 require (
@@ -43,7 +44,6 @@ require (
 	github.com/multiformats/go-base32 v0.1.0 // indirect
 	github.com/multiformats/go-base36 v0.2.0 // indirect
 	github.com/multiformats/go-multibase v0.2.0 // indirect
-	github.com/multiformats/go-varint v0.0.7 // indirect
 	github.com/opentracing/opentracing-go v1.2.0 // indirect
 	github.com/polydawn/refmt v0.89.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
