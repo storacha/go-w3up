@@ -25,10 +25,10 @@ import (
   "net/url"
   "ioutil"
 
-  "github.com/web3-storage/go-ucanto/core/delegation"
   "github.com/web3-storage/go-ucanto/did"
   "github.com/web3-storage/go-ucanto/principal/ed25519/signer"
   "github.com/web3-storage/go-w3up/client"
+  "github.com/web3-storage/go-w3up/delegation"
 )
 
 // private key to sign invocation UCAN with
@@ -37,7 +37,7 @@ signer, _ := signer.Parse(priv)
 
 // UCAN proof that signer can list uploads in this space (a delegation chain)
 prfbytes, _ := ioutil.ReadFile("path/to/proof.ucan")
-proof, _ := delegation.Extract(b)
+proof, _ := delegation.ExtractProof(b)
 
 // space to list uploads from
 space, _ := did.Parse("did:key:z6MkwDuRThQcyWjqNsK54yKAmzfsiH6BTkASyiucThMtHt1y")
@@ -46,7 +46,7 @@ rcpt, _ := client.UploadList(
    signer,
    space,
    &uploadlist.Caveat{},
-   client.WithProofs([]delegation.Delegation{proof}),
+   client.WithProof(proof),
 )
 
 for _, r := range rcpt.Out().Ok().Results {

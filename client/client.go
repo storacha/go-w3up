@@ -13,7 +13,18 @@ import (
 	"github.com/web3-storage/go-w3up/capability/uploadlist"
 )
 
-func StoreAdd(signer principal.Signer, space did.DID, params *storeadd.Caveat, options ...Option) (receipt.Receipt[*storeadd.Success, *storeadd.Failure], error) {
+// StoreAdd stores a DAG encoded as a CAR file. The issuer needs proof of
+// `store/add` delegated capability.
+//
+// Required delegated capability proofs: `store/add`
+//
+// The `issuer` is the signing authority that is issuing the UCAN invocation.
+//
+// The `space` is the resource the invocation applies to. It is typically the
+// DID of a space.
+//
+// The `params` are caveats required to perform a `store/add` invocation.
+func StoreAdd(issuer principal.Signer, space did.DID, params *storeadd.Caveat, options ...Option) (receipt.Receipt[*storeadd.Success, *storeadd.Failure], error) {
 	cfg := ClientConfig{conn: DefaultConnection}
 	for _, opt := range options {
 		if err := opt(&cfg); err != nil {
@@ -22,7 +33,7 @@ func StoreAdd(signer principal.Signer, space did.DID, params *storeadd.Caveat, o
 	}
 
 	inv, err := invocation.Invoke(
-		signer,
+		issuer,
 		cfg.conn.ID(),
 		storeadd.NewCapability(space, params),
 		convertToInvocationOptions(cfg)...,
@@ -52,7 +63,18 @@ func StoreAdd(signer principal.Signer, space did.DID, params *storeadd.Caveat, o
 	return reader.Read(rcptlnk, resp.Blocks())
 }
 
-func UploadAdd(signer principal.Signer, space did.DID, params *uploadadd.Caveat, options ...Option) (receipt.Receipt[*uploadadd.Success, *uploadadd.Failure], error) {
+// UploadAdd registers an "upload" with the service. The issuer needs proof of
+// `upload/add` delegated capability.
+//
+// Required delegated capability proofs: `upload/add`
+//
+// The `issuer` is the signing authority that is issuing the UCAN invocation.
+//
+// The `space` is the resource the invocation applies to. It is typically the
+// DID of a space.
+//
+// The `params` are caveats required to perform an `upload/add` invocation.
+func UploadAdd(issuer principal.Signer, space did.DID, params *uploadadd.Caveat, options ...Option) (receipt.Receipt[*uploadadd.Success, *uploadadd.Failure], error) {
 	cfg := ClientConfig{conn: DefaultConnection}
 	for _, opt := range options {
 		if err := opt(&cfg); err != nil {
@@ -61,7 +83,7 @@ func UploadAdd(signer principal.Signer, space did.DID, params *uploadadd.Caveat,
 	}
 
 	inv, err := invocation.Invoke(
-		signer,
+		issuer,
 		cfg.conn.ID(),
 		uploadadd.NewCapability(space, params),
 		convertToInvocationOptions(cfg)...,
@@ -91,7 +113,17 @@ func UploadAdd(signer principal.Signer, space did.DID, params *uploadadd.Caveat,
 	return reader.Read(rcptlnk, resp.Blocks())
 }
 
-func UploadList(signer principal.Signer, space did.DID, params *uploadlist.Caveat, options ...Option) (receipt.Receipt[*uploadlist.Success, *uploadlist.Failure], error) {
+// UploadList returns a paginated list of uploads in a space.
+//
+// Required delegated capability proofs: `upload/list`
+//
+// The `issuer` is the signing authority that is issuing the UCAN invocation.
+//
+// The `space` is the resource the invocation applies to. It is typically the
+// DID of a space.
+//
+// The `params` are caveats required to perform an `upload/list` invocation.
+func UploadList(issuer principal.Signer, space did.DID, params *uploadlist.Caveat, options ...Option) (receipt.Receipt[*uploadlist.Success, *uploadlist.Failure], error) {
 	cfg := ClientConfig{conn: DefaultConnection}
 	for _, opt := range options {
 		if err := opt(&cfg); err != nil {
@@ -100,7 +132,7 @@ func UploadList(signer principal.Signer, space did.DID, params *uploadlist.Cavea
 	}
 
 	inv, err := invocation.Invoke(
-		signer,
+		issuer,
 		cfg.conn.ID(),
 		uploadlist.NewCapability(space, params),
 		convertToInvocationOptions(cfg)...,

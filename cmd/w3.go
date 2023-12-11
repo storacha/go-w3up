@@ -17,7 +17,6 @@ import (
 	"github.com/web3-storage/go-w3up/capability/uploadadd"
 	"github.com/web3-storage/go-w3up/capability/uploadlist"
 	"github.com/web3-storage/go-w3up/client"
-	"github.com/web3-storage/go-w3up/cmd/lib"
 )
 
 func main() {
@@ -86,16 +85,16 @@ func main() {
 }
 
 func whoami(cCtx *cli.Context) error {
-	s := lib.MustGetSigner()
+	s := mustGetSigner()
 	fmt.Println(s.DID())
 	return nil
 }
 
 func up(cCtx *cli.Context) error {
-	signer := lib.MustGetSigner()
-	conn := lib.MustGetConnection()
-	space := lib.MustParseDID(cCtx.String("space"))
-	proof := lib.MustGetProof(cCtx.String("proof"))
+	signer := mustGetSigner()
+	conn := mustGetConnection()
+	space := mustParseDID(cCtx.String("space"))
+	proof := mustGetProof(cCtx.String("proof"))
 
 	f0, err := os.Open(cCtx.String("car"))
 	if err != nil {
@@ -209,10 +208,10 @@ func up(cCtx *cli.Context) error {
 }
 
 func ls(cCtx *cli.Context) error {
-	signer := lib.MustGetSigner()
-	conn := lib.MustGetConnection()
-	space := lib.MustParseDID(cCtx.String("space"))
-	proof := lib.MustGetProof(cCtx.String("proof"))
+	signer := mustGetSigner()
+	conn := mustGetConnection()
+	space := mustParseDID(cCtx.String("space"))
+	proof := mustGetProof(cCtx.String("proof"))
 
 	rcpt, err := client.UploadList(
 		signer,

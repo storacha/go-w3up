@@ -1,9 +1,7 @@
-package lib
+package main
 
 import (
-	"bytes"
 	_ "embed"
-	"io"
 	"log"
 	"net/url"
 	"os"
@@ -13,25 +11,23 @@ import (
 	"github.com/ipld/go-ipld-prime/codec/dagcbor"
 	"github.com/ipld/go-ipld-prime/schema"
 	"github.com/web3-storage/go-ucanto/client"
-	archive "github.com/web3-storage/go-ucanto/core/car"
-	"github.com/web3-storage/go-ucanto/core/dag/blockstore"
 	"github.com/web3-storage/go-ucanto/core/delegation"
-	"github.com/web3-storage/go-ucanto/core/ipld/block"
 	"github.com/web3-storage/go-ucanto/did"
 	"github.com/web3-storage/go-ucanto/principal"
 	"github.com/web3-storage/go-ucanto/principal/ed25519/signer"
 	"github.com/web3-storage/go-ucanto/transport/car"
 	"github.com/web3-storage/go-ucanto/transport/http"
+	cdg "github.com/web3-storage/go-w3up/delegation"
 )
 
 //go:embed config.ipldsch
 var configsch []byte
 
-type ConfigurationModel struct {
+type configurationModel struct {
 	Signer []byte
 }
 
-func MustGetSigner() principal.Signer {
+func mustGetSigner() principal.Signer {
 	str := os.Getenv("W3UP_PRIVATE_KEY") // use env var preferably
 	if str != "" {
 		s, err := signer.Parse(str)
@@ -41,7 +37,7 @@ func MustGetSigner() principal.Signer {
 		return s
 	}
 
-	conf := MustReadConfig()
+	conf := mustReadConfig()
 	s, err := signer.Decode(conf.Signer)
 	if err != nil {
 		log.Fatalf("decoding signer: %s", err)
@@ -57,7 +53,7 @@ func mustLoadConfigSchema() *schema.TypeSystem {
 	return ts
 }
 
-func MustReadConfig() *ConfigurationModel {
+func mustReadConfig() *configurationModel {
 	homedir, err := os.UserHomeDir()
 	if err != nil {
 		log.Fatalf("obtaining user home directory: %s", err)
@@ -66,7 +62,7 @@ func MustReadConfig() *ConfigurationModel {
 	typ := mustLoadConfigSchema().TypeByName("Configuration")
 	confdir := path.Join(homedir, ".w3up")
 	confpath := path.Join(confdir, "config")
-	conf := ConfigurationModel{}
+	conf := configurationModel{}
 
 	bytes, err := os.ReadFile(confpath)
 	if err != nil {
@@ -96,7 +92,7 @@ func MustReadConfig() *ConfigurationModel {
 	return &conf
 }
 
-func MustGetConnection() client.Connection {
+func mustGetConnection() client.Connection {
 	// service URL & DID
 	serviceURL, err := url.Parse("https://up.web3.storage")
 	if err != nil {
@@ -120,7 +116,7 @@ func MustGetConnection() client.Connection {
 	return conn
 }
 
-func MustParseDID(str string) did.DID {
+func mustParseDID(str string) did.DID {
 	did, err := did.Parse(str)
 	if err != nil {
 		log.Fatalf("parsing DID: %s", err)
@@ -128,42 +124,15 @@ func MustParseDID(str string) did.DID {
 	return did
 }
 
-func MustGetProof(path string) delegation.Delegation {
+func mustGetProof(path string) delegation.Delegation {
 	b, err := os.ReadFile(path)
 	if err != nil {
 		log.Fatalf("reading proof file: %s", err)
 	}
 
-	proof, err := delegation.Extract(b)
+	proof, err := cdg.ExtractProof(b)
 	if err != nil {
-		// try decode legacy format
-		_, blocks, err := archive.Decode(bytes.NewReader(b))
-		if err != nil {
-			log.Fatalf("extracting proof: %s", err)
-		}
-
-		var rt block.Block
-		bs, err := blockstore.NewBlockStore()
-		if err != nil {
-			log.Fatalf("creating blockstore: %s", err)
-		}
-		for {
-			bl, err := blocks.Next()
-			if err != nil {
-				if err == io.EOF {
-					break
-				}
-				log.Fatalf("reading block: %s", err)
-			}
-			err = bs.Put(bl)
-			if err != nil {
-				log.Fatalf("putting block: %s", err)
-			}
-			rt = bl
-		}
-
-		proof = delegation.NewDelegation(rt, bs)
+		log.Fatal(err)
 	}
-
 	return proof
 }

@@ -60,6 +60,17 @@ func WithFacts(fct []ucan.FactBuilder) Option {
 	}
 }
 
+// WithProof configures a single proof for the UCAN. If the `issuer` of this
+// `Delegation` is not the resource owner / service provider, for the delegated
+// capabilities, the `proofs` must contain valid `Proof`s containing
+// delegations to the `issuer`.
+func WithProof(prf delegation.Delegation) Option {
+	return func(cfg *ClientConfig) error {
+		cfg.prf = []delegation.Delegation{prf}
+		return nil
+	}
+}
+
 // WithProofs configures the proofs for the UCAN. If the `issuer` of this
 // `Delegation` is not the resource owner / service provider, for the delegated
 // capabilities, the `proofs` must contain valid `Proof`s containing
