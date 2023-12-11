@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -13,10 +15,14 @@ import (
 	"github.com/urfave/cli/v2"
 	"github.com/web3-storage/go-ucanto/core/car"
 	"github.com/web3-storage/go-ucanto/core/delegation"
+	"github.com/web3-storage/go-ucanto/did"
+	"github.com/web3-storage/go-ucanto/principal"
 	"github.com/web3-storage/go-w3up/capability/storeadd"
 	"github.com/web3-storage/go-w3up/capability/uploadadd"
 	"github.com/web3-storage/go-w3up/capability/uploadlist"
+	"github.com/web3-storage/go-w3up/car/sharding"
 	"github.com/web3-storage/go-w3up/client"
+	"github.com/web3-storage/go-w3up/cmd/util"
 )
 
 func main() {
@@ -48,7 +54,7 @@ func main() {
 						Name:    "car",
 						Aliases: []string{"c"},
 						Value:   "",
-						Usage:   "Path to CAR file to upload (max 4GB).",
+						Usage:   "Path to CAR file to upload.",
 					},
 				},
 				Action: up,
@@ -85,16 +91,16 @@ func main() {
 }
 
 func whoami(cCtx *cli.Context) error {
-	s := mustGetSigner()
+	s := util.MustGetSigner()
 	fmt.Println(s.DID())
 	return nil
 }
 
 func up(cCtx *cli.Context) error {
-	signer := mustGetSigner()
-	conn := mustGetConnection()
-	space := mustParseDID(cCtx.String("space"))
-	proof := mustGetProof(cCtx.String("proof"))
+	signer := util.MustGetSigner()
+	conn := util.MustGetConnection()
+	space := util.MustParseDID(cCtx.String("space"))
+	proofs := []delegation.Delegation{util.MustGetProof(cCtx.String("proof"))}
 
 	f0, err := os.Open(cCtx.String("car"))
 	if err != nil {
@@ -106,68 +112,34 @@ func up(cCtx *cli.Context) error {
 		log.Fatalf("stat file: %s", err)
 	}
 
-	mh, err := multihash.SumStream(f0, multihash.SHA2_256, -1)
-	if err != nil {
-		log.Fatalf("hashing CAR: %s", err)
-	}
+	var shdlnks []ipld.Link
 
-	err = f0.Close()
-	if err != nil {
-		log.Fatalf("closing file: %s", err)
-	}
-
-	link := cidlink.Link{Cid: cid.NewCidV1(0x0202, mh)}
-	fmt.Println(link.String())
-
-	rcpt, err := client.StoreAdd(
-		signer,
-		space,
-		&storeadd.Caveat{
-			Link: link,
-			Size: uint64(stat.Size()),
-		},
-		client.WithConnection(conn),
-		client.WithProofs([]delegation.Delegation{proof}),
-	)
-	if err != nil {
-		return err
-	}
-
-	if rcpt.Out().Error() != nil {
-		log.Fatalf("%+v\n", rcpt.Out().Error())
-	}
-
-	if rcpt.Out().Ok().Status == "upload" {
-		f2, err := os.Open(cCtx.String("car"))
+	defer f0.Close()
+	if stat.Size() < sharding.ShardSize {
+		link := storeShard(signer, space, f0, proofs)
+		fmt.Println(link.String())
+		shdlnks = append(shdlnks, link)
+	} else {
+		_, blocks, err := car.Decode(f0)
 		if err != nil {
-			log.Fatalf("opening file: %s", err)
+			log.Fatalf("decoding CAR: %s", err)
+		}
+		shds, err := sharding.NewSharder([]ipld.Link{}, blocks)
+		if err != nil {
+			log.Fatalf("sharding CAR: %s", err)
 		}
 
-		fmt.Println(*rcpt.Out().Ok().Url)
-		hr, err := http.NewRequest("PUT", *rcpt.Out().Ok().Url, f2)
-		if err != nil {
-			log.Fatalf("creating HTTP request: %s", err)
-		}
-
-		hdr := map[string][]string{}
-		for k, v := range rcpt.Out().Ok().Headers.Values {
-			fmt.Printf("%s: %s\n", k, v)
-			hdr[k] = []string{v}
-		}
-
-		hr.Header = hdr
-		hr.ContentLength = stat.Size()
-		httpClient := http.Client{}
-		res, err := httpClient.Do(hr)
-		if err != nil {
-			log.Fatalf("doing HTTP request: %s", err)
-		}
-		if res.StatusCode != 200 {
-			log.Fatalf("non-200 status code while uploading file: %d", res.StatusCode)
-		}
-		err = res.Body.Close()
-		if err != nil {
-			log.Fatalf("closing request body: %s", err)
+		for {
+			shd, err := shds.Next()
+			if err != nil {
+				if err == io.EOF {
+					break
+				}
+				log.Fatal(err)
+			}
+			link := storeShard(signer, space, shd, proofs)
+			fmt.Println(link.String())
+			shdlnks = append(shdlnks, link)
 		}
 	}
 
@@ -189,10 +161,10 @@ func up(cCtx *cli.Context) error {
 			space,
 			&uploadadd.Caveat{
 				Root:   roots[0],
-				Shards: []ipld.Link{link},
+				Shards: shdlnks,
 			},
 			client.WithConnection(conn),
-			client.WithProofs([]delegation.Delegation{proof}),
+			client.WithProofs(proofs),
 		)
 		if err != nil {
 			return err
@@ -207,11 +179,73 @@ func up(cCtx *cli.Context) error {
 	return nil
 }
 
+func storeShard(issuer principal.Signer, space did.DID, shard io.Reader, proofs []delegation.Delegation) ipld.Link {
+	buf := new(bytes.Buffer)
+	_, err := buf.ReadFrom(shard)
+	if err != nil {
+		log.Fatalf("reading CAR: %s", err)
+	}
+
+	mh, err := multihash.Sum(buf.Bytes(), multihash.SHA2_256, -1)
+	if err != nil {
+		log.Fatalf("hashing CAR: %s", err)
+	}
+
+	link := cidlink.Link{Cid: cid.NewCidV1(0x0202, mh)}
+
+	rcpt, err := client.StoreAdd(
+		issuer,
+		space,
+		&storeadd.Caveat{
+			Link: link,
+			Size: uint64(buf.Len()),
+		},
+		client.WithConnection(util.MustGetConnection()),
+		client.WithProofs(proofs),
+	)
+	if err != nil {
+		log.Fatalf("store/add %s: %s", link, err)
+	}
+
+	if rcpt.Out().Error() != nil {
+		log.Fatalf("%+v\n", rcpt.Out().Error())
+	}
+
+	if rcpt.Out().Ok().Status == "upload" {
+		hr, err := http.NewRequest("PUT", *rcpt.Out().Ok().Url, bytes.NewReader(buf.Bytes()))
+		if err != nil {
+			log.Fatalf("creating HTTP request: %s", err)
+		}
+
+		hdr := map[string][]string{}
+		for k, v := range rcpt.Out().Ok().Headers.Values {
+			hdr[k] = []string{v}
+		}
+
+		hr.Header = hdr
+		hr.ContentLength = int64(buf.Len())
+		httpClient := http.Client{}
+		res, err := httpClient.Do(hr)
+		if err != nil {
+			log.Fatalf("doing HTTP request: %s", err)
+		}
+		if res.StatusCode != 200 {
+			log.Fatalf("non-200 status code while uploading file: %d", res.StatusCode)
+		}
+		err = res.Body.Close()
+		if err != nil {
+			log.Fatalf("closing request body: %s", err)
+		}
+	}
+
+	return link
+}
+
 func ls(cCtx *cli.Context) error {
-	signer := mustGetSigner()
-	conn := mustGetConnection()
-	space := mustParseDID(cCtx.String("space"))
-	proof := mustGetProof(cCtx.String("proof"))
+	signer := util.MustGetSigner()
+	conn := util.MustGetConnection()
+	space := util.MustParseDID(cCtx.String("space"))
+	proof := util.MustGetProof(cCtx.String("proof"))
 
 	rcpt, err := client.UploadList(
 		signer,

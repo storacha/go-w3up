@@ -1,4 +1,4 @@
-package main
+package util
 
 import (
 	_ "embed"
@@ -27,7 +27,7 @@ type configurationModel struct {
 	Signer []byte
 }
 
-func mustGetSigner() principal.Signer {
+func MustGetSigner() principal.Signer {
 	str := os.Getenv("W3UP_PRIVATE_KEY") // use env var preferably
 	if str != "" {
 		s, err := signer.Parse(str)
@@ -92,7 +92,7 @@ func mustReadConfig() *configurationModel {
 	return &conf
 }
 
-func mustGetConnection() client.Connection {
+func MustGetConnection() client.Connection {
 	// service URL & DID
 	serviceURL, err := url.Parse("https://up.web3.storage")
 	if err != nil {
@@ -116,7 +116,7 @@ func mustGetConnection() client.Connection {
 	return conn
 }
 
-func mustParseDID(str string) did.DID {
+func MustParseDID(str string) did.DID {
 	did, err := did.Parse(str)
 	if err != nil {
 		log.Fatalf("parsing DID: %s", err)
@@ -124,7 +124,7 @@ func mustParseDID(str string) did.DID {
 	return did
 }
 
-func mustGetProof(path string) delegation.Delegation {
+func MustGetProof(path string) delegation.Delegation {
 	b, err := os.ReadFile(path)
 	if err != nil {
 		log.Fatalf("reading proof file: %s", err)

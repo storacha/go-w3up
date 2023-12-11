@@ -8,7 +8,7 @@ require (
 	github.com/multiformats/go-multihash v0.2.3
 	github.com/multiformats/go-varint v0.0.7
 	github.com/urfave/cli/v2 v2.25.7
-	github.com/web3-storage/go-ucanto v0.0.0-20231211123132-55806bb24d2e
+	github.com/web3-storage/go-ucanto v0.1.0
 )
 
 require (

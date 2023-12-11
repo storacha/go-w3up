@@ -13,7 +13,7 @@ import (
 )
 
 // https://observablehq.com/@gozala/w3up-shard-size
-const shardSize = 133_169_152
+const ShardSize = 133_169_152
 
 /** Byte length of a CBOR encoded CAR header with zero roots. */
 const noRootsHeaderLen = 17
@@ -42,7 +42,7 @@ func NewSharderFromCAR(reader io.Reader) (iterable.Iterator[io.Reader], error) {
 }
 
 func NewSharder(roots []ipld.Link, blocks iterable.Iterator[block.Block], options ...Option) (iterable.Iterator[io.Reader], error) {
-	cfg := sharderConfig{shdsize: shardSize}
+	cfg := sharderConfig{shdsize: ShardSize}
 	for _, opt := range options {
 		if err := opt(&cfg); err != nil {
 			return nil, err
@@ -66,7 +66,7 @@ func NewSharder(roots []ipld.Link, blocks iterable.Iterator[block.Block], option
 			return nil, io.EOF
 		}
 
-		clen := hdrlen
+		clen := 0
 		return car.Encode(roots, iterable.NewIterator(func() (block.Block, error) {
 			var blk ipld.Block
 			if nxt != nil {

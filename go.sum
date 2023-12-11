@@ -238,8 +238,8 @@ github.com/warpfork/go-testmark v0.12.1 h1:rMgCpJfwy1sJ50x0M0NgyphxYYPMOODIJHhsX
 github.com/warpfork/go-testmark v0.12.1/go.mod h1:kHwy7wfvGSPh1rQJYKayD4AbtNaeyZdcGi9tNJTaa5Y=
 github.com/warpfork/go-wish v0.0.0-20220906213052-39a1cc7a02d0 h1:GDDkbFiaK8jsSDJfjId/PEGEShv6ugrt4kYsC5UIDaQ=
 github.com/warpfork/go-wish v0.0.0-20220906213052-39a1cc7a02d0/go.mod h1:x6AKhvSSexNrVSrViXSHUEbICjmGXhtgABaHIySUSGw=
-github.com/web3-storage/go-ucanto v0.0.0-20231211123132-55806bb24d2e h1:4Ag+MHo9809f4HBEtiZ/ung6iwhjflttjiBlBo23DL0=
-github.com/web3-storage/go-ucanto v0.0.0-20231211123132-55806bb24d2e/go.mod h1:XD6zahQ8HLh8Z2CSK7xYcTR0A7oCVYXTZB7fFtYqGF8=
+github.com/web3-storage/go-ucanto v0.1.0 h1:Hg6jO7OLLeDLtmseQZWQGBFJMp+5t5OWAFVL5Y3LsOs=
+github.com/web3-storage/go-ucanto v0.1.0/go.mod h1:XD6zahQ8HLh8Z2CSK7xYcTR0A7oCVYXTZB7fFtYqGF8=
 github.com/whyrusleeping/cbor-gen v0.0.0-20230818171029-f91ae536ca25 h1:yVYDLoN2gmB3OdBXFW8e1UwgVbmCvNlnAKhvHPaNARI=
 github.com/whyrusleeping/cbor-gen v0.0.0-20230818171029-f91ae536ca25/go.mod h1:fgkXqYy7bV2cFeIEOkVTZS/WjXARfBqSH6Q2qHL33hQ=
 github.com/whyrusleeping/go-logging v0.0.0-20170515211332-0457bb6b88fc/go.mod h1:bopw91TMyo8J3tvftk8xmU2kPmlrt4nScJQZU2hE5EM=
