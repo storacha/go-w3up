@@ -56,6 +56,8 @@ for _, r := range rcpt.Out().Ok().Results {
 
 ### CLI
 
+The CLI will automatically generate a DID for you and store it in `~/.w3up/config`. To use the CLI, you should delegate capabilities allowing that DID to perform tasks. You can then use those delegations as your proofs. You can use `go run ./cmd/w3 whoami` to print the DID (public key) - this is the DID you should delegate capabilities to. See the [how to for obtaining proofs](#obtain-proofs), optionally skipping the first step since the CLI already generated a DID for you.
+
 ```console
 go run ./cmd/w3.go --help
 NAME:
