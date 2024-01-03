@@ -10,11 +10,12 @@ import (
 var ResultSchema []byte
 
 type Success struct {
-	Status  string
-	With    string
-	Link    ipld.Link
-	Url     *string
-	Headers *Headers
+	Allocated int
+	Status    string
+	With      string
+	Link      ipld.Link
+	Url       *string
+	Headers   *Headers
 }
 
 type Headers struct {

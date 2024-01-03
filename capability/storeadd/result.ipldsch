@@ -4,6 +4,7 @@ type Result union {
 } representation keyed
 
 type Success struct {
+  allocated Int
   status String
   with DID
   link Link
