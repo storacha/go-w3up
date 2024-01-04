@@ -9,6 +9,7 @@ type Success struct {
   link Link
   url optional URL
   headers optional {String: String}
+  allocated Int
 }
 
 # type Success union {

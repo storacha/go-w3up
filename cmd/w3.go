@@ -43,7 +43,7 @@ func main() {
 					&cli.StringFlag{
 						Name:  "space",
 						Value: "",
-						Usage: "DID of space to list uploads from.",
+						Usage: "DID of space to upload to.",
 					},
 					&cli.StringFlag{
 						Name:  "proof",
