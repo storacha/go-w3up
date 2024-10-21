@@ -31,27 +31,31 @@ import (
   "github.com/web3-storage/go-w3up/delegation"
 )
 
-// private key to sign invocation UCAN with
-priv, _ := ioutil.ReadFile("path/to/private.key")
-signer, _ := signer.Parse(priv)
+func main(
 
-// UCAN proof that signer can list uploads in this space (a delegation chain)
-prfbytes, _ := ioutil.ReadFile("path/to/proof.ucan")
-proof, _ := delegation.ExtractProof(b)
+	// private key to sign invocation UCAN with
+	priv,_:= ioutil.ReadFile("path/to/private.key")
+	signer, _ := signer.Parse(priv)
 
-// space to list uploads from
-space, _ := did.Parse("did:key:z6MkwDuRThQcyWjqNsK54yKAmzfsiH6BTkASyiucThMtHt1y")
+	// UCAN proof that signer can list uploads in this space (a delegation chain)
+	prfbytes, _ := ioutil.ReadFile("path/to/proof.ucan")
+	proof, _ := delegation.ExtractProof(b)
 
-rcpt, _ := client.UploadList(
-   signer,
-   space,
-   &uploadlist.Caveat{},
-   client.WithProof(proof),
+	// space to list uploads from
+	space, _ := did.Parse("did:key:z6MkwDuRThQcyWjqNsK54yKAmzfsiH6BTkASyiucThMtHt1y")
+
+	rcpt, _ := client.UploadList(
+	signer,
+	space,
+	&uploadlist.Caveat{},
+	client.WithProof(proof),
+	)
+
+	for _, r := range rcpt.Out().Ok().Results {
+	fmt.Printf("%s\n", r.Root)
+	}
+
 )
-
-for _, r := range rcpt.Out().Ok().Results {
-   fmt.Printf("%s\n", r.Root)
-}
 ```
 
 ### CLI
