@@ -219,6 +219,9 @@ func storeShard(issuer principal.Signer, space did.DID, shard io.Reader, proofs 
 
 		hdr := map[string][]string{}
 		for k, v := range rcpt.Out().Ok().Headers.Values {
+			if k == "content-length" {
+				continue
+			}
 			hdr[k] = []string{v}
 		}
 
