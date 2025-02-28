@@ -1,5 +1,3 @@
-// Package adder provides functionality to add files and directories to a DAG (Directed Acyclic Graph).
-// It handles chunking of files, building balanced DAG structures, and integrating with a MFS (Mutable File System).
 package adder
 
 import (
