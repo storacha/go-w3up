@@ -4,10 +4,12 @@ go 1.23.6
 
 require (
 	github.com/ipfs/boxo v0.28.0
+	github.com/ipfs/go-block-format v0.2.0
 	github.com/ipfs/go-cid v0.5.0
+	github.com/ipfs/go-datastore v0.7.0
 	github.com/ipfs/go-ipld-format v0.6.0
 	github.com/ipfs/go-merkledag v0.11.0
-	github.com/ipfs/go-unixfs v0.3.1
+	github.com/ipld/go-car v0.6.2
 )
 
 require (
@@ -22,16 +24,12 @@ require (
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/ipfs/bbloom v0.0.4 // indirect
 	github.com/ipfs/go-bitfield v1.1.0 // indirect
-	github.com/ipfs/go-block-format v0.2.0 // indirect
 	github.com/ipfs/go-blockservice v0.5.2 // indirect
-	github.com/ipfs/go-datastore v0.7.0 // indirect
 	github.com/ipfs/go-ipfs-blockstore v1.3.1 // indirect
-	github.com/ipfs/go-ipfs-chunker v0.0.6 // indirect
 	github.com/ipfs/go-ipfs-ds-help v1.1.1 // indirect
 	github.com/ipfs/go-ipfs-exchange-interface v0.2.1 // indirect
-	github.com/ipfs/go-ipfs-files v0.0.3 // indirect
-	github.com/ipfs/go-ipfs-posinfo v0.0.2 // indirect
 	github.com/ipfs/go-ipfs-util v0.0.3 // indirect
+	github.com/ipfs/go-ipld-cbor v0.1.0 // indirect
 	github.com/ipfs/go-ipld-legacy v0.2.1 // indirect
 	github.com/ipfs/go-log v1.0.5 // indirect
 	github.com/ipfs/go-log/v2 v2.5.1 // indirect
@@ -53,6 +51,7 @@ require (
 	github.com/opentracing/opentracing-go v1.2.0 // indirect
 	github.com/polydawn/refmt v0.89.0 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
+	github.com/whyrusleeping/cbor-gen v0.1.2 // indirect
 	github.com/whyrusleeping/chunker v0.0.0-20181014151217-fe64bd25879f // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
 	go.opentelemetry.io/otel v1.34.0 // indirect
@@ -64,6 +63,7 @@ require (
 	golang.org/x/crypto v0.33.0 // indirect
 	golang.org/x/sync v0.11.0 // indirect
 	golang.org/x/sys v0.30.0 // indirect
+	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da // indirect
 	google.golang.org/protobuf v1.36.5 // indirect
 	lukechampine.com/blake3 v1.3.0 // indirect
 )
