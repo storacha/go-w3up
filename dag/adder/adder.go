@@ -17,7 +17,7 @@ import (
 	ihelper"github.com/ipfs/boxo/ipld/unixfs/importer/helpers"
 	filestoreposinfo "github.com/ipfs/boxo/filestore/posinfo"
 	ipld "github.com/ipfs/go-ipld-format"
-	dag "github.com/ipfs/go-merkledag"
+	dag "github.com/ipfs/boxo/ipld/merkledag" 
 	// w3fs "github.com/web3-storage/go-w3up/dag/fs"
 )
 
