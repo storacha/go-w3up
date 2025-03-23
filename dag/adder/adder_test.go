@@ -10,7 +10,7 @@ import (
 	ds "github.com/ipfs/go-datastore"
 	dsync "github.com/ipfs/go-datastore/sync"
 	ipld "github.com/ipfs/go-ipld-format"
-	dag "github.com/ipfs/go-merkledag"
+	dag "github.com/ipfs/boxo/ipld/merkledag"
 )
 
 func TestDefaultAdderOptions(t *testing.T) {
