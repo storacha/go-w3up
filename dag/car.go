@@ -1,4 +1,4 @@
-package dag
+package car
 
 import (
 	"bytes"
@@ -16,6 +16,7 @@ import (
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/sync"
 	gocar "github.com/ipld/go-car/v2"
+	carstorage "github.com/ipld/go-car/v2/storage"
 )
 
 func BuildCAR(ctx context.Context, file fs.File, path string, fsys fs.FS) (io.Reader, cid.Cid, error) {
@@ -37,7 +38,12 @@ func BuildCAR(ctx context.Context, file fs.File, path string, fsys fs.FS) (io.Re
 
 	buf := new(bytes.Buffer)
 
-	var blocksToWrite []blocks.Block
+	carBlockStore, err := carstorage.NewWritable(buf, []cid.Cid{rootCid}, gocar.WriteAsCarV1(true))
+	if err != nil {
+		return nil, cid.Undef, fmt.Errorf("creating CAR blockstore: %w", err)
+	}
+	defer carBlockStore.Finalize() 
+
 	seenBlocks := make(map[string]bool)
 
 	var collectBlocks func(c cid.Cid) error
@@ -57,13 +63,16 @@ func BuildCAR(ctx context.Context, file fs.File, path string, fsys fs.FS) (io.Re
 			return fmt.Errorf("creating block: %w", err)
 		}
 
-		blocksToWrite = append(blocksToWrite, blk)
+		err = carBlockStore.Put(ctx, blk.Cid().String(), blk.RawData())
+		if err != nil {
+			return fmt.Errorf("writing block to CAR: %w", err)
+		}
 
 		for _, link := range nd.Links() {
 			err := collectBlocks(link.Cid)
 			if err != nil {
 				return err
-			}
+			} 
 		}
 		return nil
 	}
@@ -71,26 +80,6 @@ func BuildCAR(ctx context.Context, file fs.File, path string, fsys fs.FS) (io.Re
 	err = collectBlocks(rootCid)
 	if err != nil {
 		return nil, cid.Undef, fmt.Errorf("collecting blocks: %w", err)
-	}
-
-	carWriter := gocar.CarWriter{
-		DataWriter: buf,
-		Header: &gocar.CarHeader{
-			Roots:   []cid.Cid{rootCid},
-			Version: 1,
-		},
-	}
-
-	for _, blk := range blocksToWrite {
-		err := carWriter.Put(blk)
-		if err != nil {
-			return nil, cid.Undef, fmt.Errorf("writing block to CAR: %w", err)
-		}
-	}
-
-	err = carWriter.Finalize()
-	if err != nil {
-		return nil, cid.Undef, fmt.Errorf("finalizing CAR writer: %w", err)
 	}
 
 	return buf, rootCid, nil

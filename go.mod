@@ -9,7 +9,6 @@ require (
 	github.com/ipfs/go-cid v0.5.0
 	github.com/ipfs/go-datastore v0.7.0
 	github.com/ipfs/go-ipld-format v0.6.0
-	github.com/ipfs/go-merkledag v0.11.0
 	github.com/ipld/go-car/v2 v2.14.2
 )
 
