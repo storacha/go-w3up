@@ -48,9 +48,6 @@ func StoreAdd(issuer principal.Signer, space did.DID, params *storeadd.Caveat, o
 	}
 
 	rcptlnk, ok := resp.Get(inv.Link())
-	if err != nil {
-		return nil, err
-	}
 	if !ok {
 		return nil, fmt.Errorf("receipt not found: %s", inv.Link())
 	}
@@ -98,9 +95,6 @@ func UploadAdd(issuer principal.Signer, space did.DID, params *uploadadd.Caveat,
 	}
 
 	rcptlnk, ok := resp.Get(inv.Link())
-	if err != nil {
-		return nil, err
-	}
 	if !ok {
 		return nil, fmt.Errorf("receipt not found: %s", inv.Link())
 	}
@@ -147,9 +141,6 @@ func UploadList(issuer principal.Signer, space did.DID, params *uploadlist.Cavea
 	}
 
 	rcptlnk, ok := resp.Get(inv.Link())
-	if err != nil {
-		return nil, err
-	}
 	if !ok {
 		return nil, fmt.Errorf("receipt not found: %s", inv.Link())
 	}
