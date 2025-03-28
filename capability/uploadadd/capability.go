@@ -4,8 +4,8 @@ import (
 	"github.com/ipld/go-ipld-prime"
 	"github.com/ipld/go-ipld-prime/datamodel"
 	"github.com/ipld/go-ipld-prime/node/basicnode"
-	"github.com/web3-storage/go-ucanto/did"
-	"github.com/web3-storage/go-ucanto/ucan"
+	"github.com/storacha/go-ucanto/did"
+	"github.com/storacha/go-ucanto/ucan"
 )
 
 const Ability = "upload/add"

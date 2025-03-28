@@ -3,11 +3,11 @@ package client
 import (
 	"fmt"
 
-	"github.com/web3-storage/go-ucanto/client"
-	"github.com/web3-storage/go-ucanto/core/invocation"
-	"github.com/web3-storage/go-ucanto/core/receipt"
-	"github.com/web3-storage/go-ucanto/did"
-	"github.com/web3-storage/go-ucanto/principal"
+	"github.com/storacha/go-ucanto/client"
+	"github.com/storacha/go-ucanto/core/invocation"
+	"github.com/storacha/go-ucanto/core/receipt"
+	"github.com/storacha/go-ucanto/did"
+	"github.com/storacha/go-ucanto/principal"
 	"github.com/storacha/go-w3up/capability/storeadd"
 	"github.com/storacha/go-w3up/capability/uploadadd"
 	"github.com/storacha/go-w3up/capability/uploadlist"

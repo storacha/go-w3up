@@ -1,9 +1,9 @@
 package client
 
 import (
-	"github.com/web3-storage/go-ucanto/client"
-	"github.com/web3-storage/go-ucanto/core/delegation"
-	"github.com/web3-storage/go-ucanto/ucan"
+	"github.com/storacha/go-ucanto/client"
+	"github.com/storacha/go-ucanto/core/delegation"
+	"github.com/storacha/go-ucanto/ucan"
 )
 
 // Option is an option configuring a UCAN delegation.

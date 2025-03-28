@@ -4,10 +4,10 @@ import (
 	"log"
 	"net/url"
 
-	"github.com/web3-storage/go-ucanto/client"
-	"github.com/web3-storage/go-ucanto/did"
-	"github.com/web3-storage/go-ucanto/transport/car"
-	"github.com/web3-storage/go-ucanto/transport/http"
+	"github.com/storacha/go-ucanto/client"
+	"github.com/storacha/go-ucanto/did"
+	"github.com/storacha/go-ucanto/transport/car"
+	"github.com/storacha/go-ucanto/transport/http"
 )
 
 var DefaultConnection client.Connection
