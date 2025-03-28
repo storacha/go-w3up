@@ -8,9 +8,9 @@ import (
 	"github.com/web3-storage/go-ucanto/core/receipt"
 	"github.com/web3-storage/go-ucanto/did"
 	"github.com/web3-storage/go-ucanto/principal"
-	"github.com/web3-storage/go-w3up/capability/storeadd"
-	"github.com/web3-storage/go-w3up/capability/uploadadd"
-	"github.com/web3-storage/go-w3up/capability/uploadlist"
+	"github.com/storacha/go-w3up/capability/storeadd"
+	"github.com/storacha/go-w3up/capability/uploadadd"
+	"github.com/storacha/go-w3up/capability/uploadlist"
 )
 
 // StoreAdd stores a DAG encoded as a CAR file. The issuer needs proof of

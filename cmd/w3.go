@@ -17,12 +17,12 @@ import (
 	"github.com/web3-storage/go-ucanto/core/delegation"
 	"github.com/web3-storage/go-ucanto/did"
 	"github.com/web3-storage/go-ucanto/principal"
-	"github.com/web3-storage/go-w3up/capability/storeadd"
-	"github.com/web3-storage/go-w3up/capability/uploadadd"
-	"github.com/web3-storage/go-w3up/capability/uploadlist"
-	"github.com/web3-storage/go-w3up/car/sharding"
-	"github.com/web3-storage/go-w3up/client"
-	"github.com/web3-storage/go-w3up/cmd/util"
+	"github.com/storacha/go-w3up/capability/storeadd"
+	"github.com/storacha/go-w3up/capability/uploadadd"
+	"github.com/storacha/go-w3up/capability/uploadlist"
+	"github.com/storacha/go-w3up/car/sharding"
+	"github.com/storacha/go-w3up/client"
+	"github.com/storacha/go-w3up/cmd/util"
 )
 
 func main() {

@@ -12,7 +12,7 @@ import (
 	"github.com/web3-storage/go-ucanto/core/ipld/block"
 	"github.com/web3-storage/go-ucanto/core/ipld/hash/sha256"
 	"github.com/web3-storage/go-ucanto/core/iterable"
-	"github.com/web3-storage/go-w3up/car/sharding"
+	"github.com/storacha/go-w3up/car/sharding"
 )
 
 func randomRawBlock(t testing.TB, size int) ipld.Block {
