@@ -8,9 +8,9 @@ import (
 	"github.com/web3-storage/go-ucanto/core/receipt"
 	"github.com/web3-storage/go-ucanto/did"
 	"github.com/web3-storage/go-ucanto/principal"
-	"github.com/web3-storage/go-w3up/capability/storeadd"
-	"github.com/web3-storage/go-w3up/capability/uploadadd"
-	"github.com/web3-storage/go-w3up/capability/uploadlist"
+	"github.com/storacha/go-w3up/capability/storeadd"
+	"github.com/storacha/go-w3up/capability/uploadadd"
+	"github.com/storacha/go-w3up/capability/uploadlist"
 )
 
 // StoreAdd stores a DAG encoded as a CAR file. The issuer needs proof of
@@ -48,9 +48,6 @@ func StoreAdd(issuer principal.Signer, space did.DID, params *storeadd.Caveat, o
 	}
 
 	rcptlnk, ok := resp.Get(inv.Link())
-	if err != nil {
-		return nil, err
-	}
 	if !ok {
 		return nil, fmt.Errorf("receipt not found: %s", inv.Link())
 	}
@@ -98,9 +95,6 @@ func UploadAdd(issuer principal.Signer, space did.DID, params *uploadadd.Caveat,
 	}
 
 	rcptlnk, ok := resp.Get(inv.Link())
-	if err != nil {
-		return nil, err
-	}
 	if !ok {
 		return nil, fmt.Errorf("receipt not found: %s", inv.Link())
 	}
@@ -147,9 +141,6 @@ func UploadList(issuer principal.Signer, space did.DID, params *uploadlist.Cavea
 	}
 
 	rcptlnk, ok := resp.Get(inv.Link())
-	if err != nil {
-		return nil, err
-	}
 	if !ok {
 		return nil, fmt.Errorf("receipt not found: %s", inv.Link())
 	}

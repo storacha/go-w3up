@@ -1,4 +1,4 @@
-module github.com/web3-storage/go-w3up
+module github.com/storacha/go-w3up
 
 go 1.21.4
 

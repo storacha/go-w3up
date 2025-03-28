@@ -17,7 +17,7 @@ import (
 	"github.com/web3-storage/go-ucanto/principal/ed25519/signer"
 	"github.com/web3-storage/go-ucanto/transport/car"
 	"github.com/web3-storage/go-ucanto/transport/http"
-	cdg "github.com/web3-storage/go-w3up/delegation"
+	cdg "github.com/storacha/go-w3up/delegation"
 )
 
 //go:embed config.ipldsch
