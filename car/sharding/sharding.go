@@ -3,13 +3,13 @@ package sharding
 import (
 	"fmt"
 	"io"
+	"iter"
 
 	"github.com/multiformats/go-varint"
-	"github.com/web3-storage/go-ucanto/core/car"
-	"github.com/web3-storage/go-ucanto/core/ipld"
-	"github.com/web3-storage/go-ucanto/core/ipld/block"
-	"github.com/web3-storage/go-ucanto/core/ipld/codec/cbor"
-	"github.com/web3-storage/go-ucanto/core/iterable"
+	"github.com/storacha/go-ucanto/core/car"
+	"github.com/storacha/go-ucanto/core/ipld"
+	"github.com/storacha/go-ucanto/core/ipld/block"
+	"github.com/storacha/go-ucanto/core/ipld/codec/cbor"
 )
 
 // https://observablehq.com/@gozala/w3up-shard-size
@@ -33,7 +33,7 @@ func WithShardSize(size int) Option {
 	}
 }
 
-func NewSharderFromCAR(reader io.Reader) (iterable.Iterator[io.Reader], error) {
+func NewSharderFromCAR(reader io.Reader) (iter.Seq2[io.Reader, error], error) {
 	roots, blocks, err := car.Decode(reader)
 	if err != nil {
 		return nil, fmt.Errorf("decoding CAR: %s", err)
@@ -41,7 +41,7 @@ func NewSharderFromCAR(reader io.Reader) (iterable.Iterator[io.Reader], error) {
 	return NewSharder(roots, blocks)
 }
 
-func NewSharder(roots []ipld.Link, blocks iterable.Iterator[block.Block], options ...Option) (iterable.Iterator[io.Reader], error) {
+func NewSharder(roots []ipld.Link, blocks iter.Seq2[ipld.Block, error], options ...Option) (iter.Seq2[io.Reader, error], error) {
 	cfg := sharderConfig{shdsize: ShardSize}
 	for _, opt := range options {
 		if err := opt(&cfg); err != nil {
@@ -56,43 +56,66 @@ func NewSharder(roots []ipld.Link, blocks iterable.Iterator[block.Block], option
 
 	maxblklen := cfg.shdsize - hdrlen
 
-	nxt, err := blocks.Next()
-	if err != nil {
-		return nil, err
-	}
+	shards := func(yield func(io.Reader, error) bool) {
+		nextBlk, stop := iter.Pull2(blocks)
+		defer stop()
 
-	return iterable.NewIterator(func() (io.Reader, error) {
-		if nxt == nil {
-			return nil, io.EOF
-		}
+		nxt, err, ok := nextBlk()
+		for {
+			if !ok {
+				return
+			}
 
-		clen := 0
-		return car.Encode(roots, iterable.NewIterator(func() (block.Block, error) {
-			var blk ipld.Block
-			if nxt != nil {
-				blk = nxt
-				nxt = nil
-			} else {
-				blk, err = blocks.Next()
-				if err != nil {
-					return nil, err
+			if err != nil {
+				yield(nil, err)
+				return
+			}
+
+			shardBlocks := func(yield func(ipld.Block, error) bool) {
+				clen := 0
+
+				for {
+					var blk ipld.Block
+					if nxt != nil {
+						blk = nxt
+						nxt = nil
+					} else {
+						blk, err, ok = nextBlk()
+						if !ok {
+							return
+						}
+
+						if err != nil {
+							yield(nil, err)
+							return
+						}
+					}
+
+					blklen := blockEncodingLength(blk)
+					if blklen > maxblklen {
+						yield(nil, fmt.Errorf("block will cause CAR to exceed shard size: %s", blk.Link()))
+						return
+					}
+
+					if clen+blklen > maxblklen {
+						nxt = blk
+						return
+					}
+
+					clen += blklen
+					if !yield(blk, nil) {
+						return
+					}
 				}
 			}
 
-			blklen := blockEncodingLength(blk)
-			if blklen > maxblklen {
-				return nil, fmt.Errorf("block will cause CAR to exceed shard size: %s", blk.Link())
+			if !yield(car.Encode(roots, shardBlocks), nil) {
+				return
 			}
+		}
+	}
 
-			if clen+blklen > maxblklen {
-				nxt = blk
-				return nil, io.EOF
-			}
-
-			clen += blklen
-			return blk, nil
-		})), nil
-	}), nil
+	return shards, nil
 }
 
 // func NewSharder(blocks iterable.Iterator[block.Block], options ...Option) (iterable.Iterator[io.Reader], error) {

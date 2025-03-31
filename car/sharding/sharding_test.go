@@ -3,16 +3,15 @@ package sharding_test
 import (
 	"bytes"
 	"crypto/rand"
-	"io"
 	"testing"
 
 	"github.com/ipfs/go-cid"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
-	"github.com/web3-storage/go-ucanto/core/ipld"
-	"github.com/web3-storage/go-ucanto/core/ipld/block"
-	"github.com/web3-storage/go-ucanto/core/ipld/hash/sha256"
-	"github.com/web3-storage/go-ucanto/core/iterable"
+	"github.com/storacha/go-ucanto/core/ipld"
+	"github.com/storacha/go-ucanto/core/ipld/block"
+	"github.com/storacha/go-ucanto/core/ipld/hash/sha256"
 	"github.com/storacha/go-w3up/car/sharding"
+	"github.com/stretchr/testify/require"
 )
 
 func randomRawBlock(t testing.TB, size int) ipld.Block {
@@ -36,36 +35,33 @@ func TestSharding(t *testing.T) {
 		randomRawBlock(t, 4000),
 		randomRawBlock(t, 4000),
 	}
-	iterator := iterable.From(blocks)
+	iterator := func(yield func(ipld.Block, error) bool) {
+		for _, b := range blocks {
+			if !yield(b, nil) {
+				return
+			}
+		}
+	}
+
 	size := 5000
 
 	shards, err := sharding.NewSharder(roots, iterator, sharding.WithShardSize(size))
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	var shdbufs [][]byte
-	for {
-		s, err := shards.Next()
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			t.Fatal(err)
-		}
+	for s, err := range shards {
+		require.NoError(t, err)
 
 		buf := new(bytes.Buffer)
 		_, err = buf.ReadFrom(s)
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
+
 		if len(buf.Bytes()) > size {
 			t.Fatalf("shard was bigger than max size: %d > %d", len(buf.Bytes()), size)
 		}
+
 		shdbufs = append(shdbufs, buf.Bytes())
 	}
 
-	if len(shdbufs) != 2 {
-		t.Fatalf("unexpected number of shards: %d", len(shdbufs))
-	}
+	require.Len(t, shdbufs, 2, "unexpected number of shards: %d", len(shdbufs))
 }

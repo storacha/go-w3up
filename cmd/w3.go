@@ -12,17 +12,18 @@ import (
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/multiformats/go-multihash"
-	"github.com/urfave/cli/v2"
-	"github.com/web3-storage/go-ucanto/core/car"
-	"github.com/web3-storage/go-ucanto/core/delegation"
-	"github.com/web3-storage/go-ucanto/did"
-	"github.com/web3-storage/go-ucanto/principal"
+	"github.com/storacha/go-ucanto/core/car"
+	"github.com/storacha/go-ucanto/core/delegation"
+	"github.com/storacha/go-ucanto/core/result"
+	"github.com/storacha/go-ucanto/did"
+	"github.com/storacha/go-ucanto/principal"
 	"github.com/storacha/go-w3up/capability/storeadd"
 	"github.com/storacha/go-w3up/capability/uploadadd"
 	"github.com/storacha/go-w3up/capability/uploadlist"
 	"github.com/storacha/go-w3up/car/sharding"
 	"github.com/storacha/go-w3up/client"
 	"github.com/storacha/go-w3up/cmd/util"
+	"github.com/urfave/cli/v2"
 )
 
 func main() {
@@ -129,8 +130,7 @@ func up(cCtx *cli.Context) error {
 			log.Fatalf("sharding CAR: %s", err)
 		}
 
-		for {
-			shd, err := shds.Next()
+		for shd, err := range shds {
 			if err != nil {
 				if err == io.EOF {
 					break
@@ -159,7 +159,7 @@ func up(cCtx *cli.Context) error {
 		rcpt, err := client.UploadAdd(
 			signer,
 			space,
-			&uploadadd.Caveat{
+			uploadadd.Caveat{
 				Root:   roots[0],
 				Shards: shdlnks,
 			},
@@ -169,8 +169,10 @@ func up(cCtx *cli.Context) error {
 		if err != nil {
 			return err
 		}
-		if rcpt.Out().Error() != nil {
-			log.Fatalf("%+v\n", rcpt.Out().Error())
+
+		_, upFailure := result.Unwrap(rcpt.Out())
+		if upFailure != nil {
+			log.Fatalf("%+v\n", upFailure)
 		}
 
 		fmt.Printf("⁂ https://w3s.link/ipfs/%s\n", roots[0])
@@ -196,7 +198,7 @@ func storeShard(issuer principal.Signer, space did.DID, shard io.Reader, proofs 
 	rcpt, err := client.StoreAdd(
 		issuer,
 		space,
-		&storeadd.Caveat{
+		storeadd.Caveat{
 			Link: link,
 			Size: uint64(buf.Len()),
 		},
@@ -207,18 +209,19 @@ func storeShard(issuer principal.Signer, space did.DID, shard io.Reader, proofs 
 		log.Fatalf("store/add %s: %s", link, err)
 	}
 
-	if rcpt.Out().Error() != nil {
-		log.Fatalf("%+v\n", rcpt.Out().Error())
+	storeSuccess, storeFailure := result.Unwrap(rcpt.Out())
+	if storeFailure != nil {
+		log.Fatalf("%+v\n", storeFailure)
 	}
 
-	if rcpt.Out().Ok().Status == "upload" {
-		hr, err := http.NewRequest("PUT", *rcpt.Out().Ok().Url, bytes.NewReader(buf.Bytes()))
+	if storeSuccess.Status == "upload" {
+		hr, err := http.NewRequest("PUT", *storeSuccess.Url, bytes.NewReader(buf.Bytes()))
 		if err != nil {
 			log.Fatalf("creating HTTP request: %s", err)
 		}
 
 		hdr := map[string][]string{}
-		for k, v := range rcpt.Out().Ok().Headers.Values {
+		for k, v := range storeSuccess.Headers.Values {
 			if k == "content-length" {
 				continue
 			}
@@ -253,7 +256,7 @@ func ls(cCtx *cli.Context) error {
 	rcpt, err := client.UploadList(
 		signer,
 		space,
-		&uploadlist.Caveat{},
+		uploadlist.Caveat{},
 		client.WithConnection(conn),
 		client.WithProofs([]delegation.Delegation{proof}),
 	)
@@ -261,11 +264,12 @@ func ls(cCtx *cli.Context) error {
 		return err
 	}
 
-	if rcpt.Out().Error() != nil {
-		log.Fatalf("%+v\n", rcpt.Out().Error())
+	lsSuccess, lsFailure := result.Unwrap(rcpt.Out())
+	if lsFailure != nil {
+		log.Fatalf("%+v\n", lsFailure)
 	}
 
-	for _, r := range rcpt.Out().Ok().Results {
+	for _, r := range lsSuccess.Results {
 		fmt.Printf("%s\n", r.Root)
 		if cCtx.Bool("shards") {
 			for _, s := range r.Shards {

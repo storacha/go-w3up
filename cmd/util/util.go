@@ -10,13 +10,13 @@ import (
 	"github.com/ipld/go-ipld-prime"
 	"github.com/ipld/go-ipld-prime/codec/dagcbor"
 	"github.com/ipld/go-ipld-prime/schema"
-	"github.com/web3-storage/go-ucanto/client"
-	"github.com/web3-storage/go-ucanto/core/delegation"
-	"github.com/web3-storage/go-ucanto/did"
-	"github.com/web3-storage/go-ucanto/principal"
-	"github.com/web3-storage/go-ucanto/principal/ed25519/signer"
-	"github.com/web3-storage/go-ucanto/transport/car"
-	"github.com/web3-storage/go-ucanto/transport/http"
+	"github.com/storacha/go-ucanto/client"
+	"github.com/storacha/go-ucanto/core/delegation"
+	"github.com/storacha/go-ucanto/did"
+	"github.com/storacha/go-ucanto/principal"
+	"github.com/storacha/go-ucanto/principal/ed25519/signer"
+	"github.com/storacha/go-ucanto/transport/car"
+	"github.com/storacha/go-ucanto/transport/http"
 	cdg "github.com/storacha/go-w3up/delegation"
 )
 
@@ -108,7 +108,7 @@ func MustGetConnection() client.Connection {
 	channel := http.NewHTTPChannel(serviceURL)
 	codec := car.NewCAROutboundCodec()
 
-	conn, err := client.NewConnection(servicePrincipal, codec, channel)
+	conn, err := client.NewConnection(servicePrincipal, channel, client.WithOutboundCodec(codec))
 	if err != nil {
 		log.Fatal(err)
 	}

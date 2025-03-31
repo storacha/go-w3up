@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/web3-storage/go-ucanto/core/car"
-	"github.com/web3-storage/go-ucanto/core/dag/blockstore"
-	"github.com/web3-storage/go-ucanto/core/delegation"
-	"github.com/web3-storage/go-ucanto/core/ipld/block"
+	"github.com/storacha/go-ucanto/core/car"
+	"github.com/storacha/go-ucanto/core/dag/blockstore"
+	"github.com/storacha/go-ucanto/core/delegation"
+	"github.com/storacha/go-ucanto/core/ipld/block"
 )
 
 // ExtractProof is a temporary helper to extract a proof from a proof archive
@@ -31,22 +31,27 @@ func ExtractProof(b []byte) (delegation.Delegation, error) {
 		if err != nil {
 			return nil, fmt.Errorf("creating blockstore: %s", err)
 		}
-		for {
-			bl, err := blocks.Next()
+
+		for bl, err := range blocks {
 			if err != nil {
 				if err == io.EOF {
 					break
 				}
+
 				return nil, fmt.Errorf("reading block: %s", err)
 			}
-			err = bs.Put(bl)
-			if err != nil {
+
+			if err := bs.Put(bl); err != nil {
 				return nil, fmt.Errorf("putting block: %s", err)
 			}
+
 			rt = bl
 		}
 
-		proof = delegation.NewDelegation(rt, bs)
+		proof, err = delegation.NewDelegation(rt, bs)
+		if err != nil {
+			return nil, fmt.Errorf("creating delegation: %s", err)
+		}
 	}
 
 	return proof, nil
