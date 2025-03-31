@@ -24,7 +24,7 @@ import (
 // DID of a space.
 //
 // The `params` are caveats required to perform a `store/add` invocation.
-func StoreAdd(issuer principal.Signer, space did.DID, params *storeadd.Caveat, options ...Option) (receipt.Receipt[*storeadd.Success, *storeadd.Failure], error) {
+func StoreAdd(issuer principal.Signer, space did.DID, params storeadd.Caveat, options ...Option) (receipt.Receipt[*storeadd.Success, *storeadd.Failure], error) {
 	cfg := ClientConfig{conn: DefaultConnection}
 	for _, opt := range options {
 		if err := opt(&cfg); err != nil {
@@ -71,7 +71,7 @@ func StoreAdd(issuer principal.Signer, space did.DID, params *storeadd.Caveat, o
 // DID of a space.
 //
 // The `params` are caveats required to perform an `upload/add` invocation.
-func UploadAdd(issuer principal.Signer, space did.DID, params *uploadadd.Caveat, options ...Option) (receipt.Receipt[*uploadadd.Success, *uploadadd.Failure], error) {
+func UploadAdd(issuer principal.Signer, space did.DID, params uploadadd.Caveat, options ...Option) (receipt.Receipt[*uploadadd.Success, *uploadadd.Failure], error) {
 	cfg := ClientConfig{conn: DefaultConnection}
 	for _, opt := range options {
 		if err := opt(&cfg); err != nil {
@@ -117,7 +117,7 @@ func UploadAdd(issuer principal.Signer, space did.DID, params *uploadadd.Caveat,
 // DID of a space.
 //
 // The `params` are caveats required to perform an `upload/list` invocation.
-func UploadList(issuer principal.Signer, space did.DID, params *uploadlist.Caveat, options ...Option) (receipt.Receipt[*uploadlist.Success, *uploadlist.Failure], error) {
+func UploadList(issuer principal.Signer, space did.DID, params uploadlist.Caveat, options ...Option) (receipt.Receipt[*uploadlist.Success, *uploadlist.Failure], error) {
 	cfg := ClientConfig{conn: DefaultConnection}
 	for _, opt := range options {
 		if err := opt(&cfg); err != nil {

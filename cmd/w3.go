@@ -159,7 +159,7 @@ func up(cCtx *cli.Context) error {
 		rcpt, err := client.UploadAdd(
 			signer,
 			space,
-			&uploadadd.Caveat{
+			uploadadd.Caveat{
 				Root:   roots[0],
 				Shards: shdlnks,
 			},
@@ -196,7 +196,7 @@ func storeShard(issuer principal.Signer, space did.DID, shard io.Reader, proofs 
 	rcpt, err := client.StoreAdd(
 		issuer,
 		space,
-		&storeadd.Caveat{
+		storeadd.Caveat{
 			Link: link,
 			Size: uint64(buf.Len()),
 		},
@@ -253,7 +253,7 @@ func ls(cCtx *cli.Context) error {
 	rcpt, err := client.UploadList(
 		signer,
 		space,
-		&uploadlist.Caveat{},
+		uploadlist.Caveat{},
 		client.WithConnection(conn),
 		client.WithProofs([]delegation.Delegation{proof}),
 	)
