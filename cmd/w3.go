@@ -130,8 +130,7 @@ func up(cCtx *cli.Context) error {
 			log.Fatalf("sharding CAR: %s", err)
 		}
 
-		for {
-			shd, err := shds.Next()
+		for shd, err := range shds {
 			if err != nil {
 				if err == io.EOF {
 					break
