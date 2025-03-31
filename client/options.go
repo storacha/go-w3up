@@ -11,8 +11,8 @@ type Option func(cfg *ClientConfig) error
 
 type ClientConfig struct {
 	conn client.Connection
-	exp  uint64
-	nbf  uint64
+	exp  *int
+	nbf  int
 	nnc  string
 	fct  []ucan.FactBuilder
 	prf  []delegation.Delegation
@@ -28,16 +28,16 @@ func WithConnection(conn client.Connection) Option {
 
 // WithExpiration configures the expiration time in UTC seconds since Unix
 // epoch. Set this to -1 for no expiration.
-func WithExpiration(exp uint64) Option {
+func WithExpiration(exp int) Option {
 	return func(cfg *ClientConfig) error {
-		cfg.exp = exp
+		cfg.exp = &exp
 		return nil
 	}
 }
 
 // WithNotBefore configures the time in UTC seconds since Unix epoch when the
 // UCAN will become valid.
-func WithNotBefore(nbf uint64) Option {
+func WithNotBefore(nbf int) Option {
 	return func(cfg *ClientConfig) error {
 		cfg.nbf = nbf
 		return nil
@@ -84,8 +84,10 @@ func WithProofs(prf []delegation.Delegation) Option {
 
 func convertToInvocationOptions(cfg ClientConfig) []delegation.Option {
 	var opts []delegation.Option
-	if cfg.exp != 0 {
-		opts = append(opts, delegation.WithExpiration(cfg.exp))
+	if cfg.exp != nil {
+		opts = append(opts, delegation.WithExpiration(*cfg.exp))
+	} else {
+		opts = append(opts, delegation.WithNoExpiration())
 	}
 	if cfg.nbf != 0 {
 		opts = append(opts, delegation.WithNotBefore(cfg.nbf))
