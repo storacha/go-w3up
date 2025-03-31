@@ -99,7 +99,12 @@ func convertToInvocationOptions(cfg ClientConfig) []delegation.Option {
 		opts = append(opts, delegation.WithFacts(cfg.fct))
 	}
 	if cfg.prf != nil {
-		opts = append(opts, delegation.WithProofs(cfg.prf))
+		proofs := []delegation.Proof{}
+		for _, dlg := range cfg.prf {
+			proofs = append(proofs, delegation.FromDelegation(dlg))
+		}
+
+		opts = append(opts, delegation.WithProof(proofs...))
 	}
 	return opts
 }
