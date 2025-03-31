@@ -28,7 +28,7 @@ func init() {
 	channel := http.NewHTTPChannel(serviceURL)
 	codec := car.NewCAROutboundCodec()
 
-	conn, err := client.NewConnection(servicePrincipal, codec, channel)
+	conn, err := client.NewConnection(servicePrincipal, channel, client.WithOutboundCodec(codec))
 	if err != nil {
 		log.Fatal(err)
 	}
