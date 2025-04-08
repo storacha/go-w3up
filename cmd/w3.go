@@ -57,8 +57,41 @@ func main() {
 						Value:   "",
 						Usage:   "Path to CAR file to upload.",
 					},
+					&cli.BoolFlag{
+						Name:    "hidden",
+						Aliases: []string{"H"},
+						Value:   false,
+						Usage:   "Include paths that start with \".\".",
+					},
+					&cli.BoolFlag{
+						Name:    "json",
+						Aliases: []string{"j"},
+						Value:   false,
+						Usage:   "Format as newline delimited JSON",
+					},
+					&cli.BoolFlag{
+						Name:    "verbose",
+						Aliases: []string{"v"},
+						Value:   false,
+						Usage:   "Output more details.",
+					},
+					&cli.BoolFlag{
+						Name:  "wrap",
+						Value: true,
+						Usage: "Wrap single input file in a directory. Has no effect on directory or CAR uploads. Pass --no-wrap to disable.",
+					},
+					&cli.IntFlag{
+						Name:  "shard-size",
+						Value: 0,
+						Usage: "Shard uploads into CAR files of approximately this size in bytes.",
+					},
+					&cli.IntFlag{
+						Name:  "concurrent-requests",
+						Value: 5,
+						Usage: "Send up to this many CAR shards concurrently.",
+					},
 				},
-				Action: up,
+				Action: upload,
 			},
 			{
 				Name:    "ls",
