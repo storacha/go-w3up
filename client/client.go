@@ -16,6 +16,7 @@ import (
 	spaceblob "github.com/storacha/go-libstoracha/capabilities/space/blob"
 	captypes "github.com/storacha/go-libstoracha/capabilities/types"
 	ucancap "github.com/storacha/go-libstoracha/capabilities/ucan"
+	w3sBlob "github.com/storacha/go-libstoracha/capabilities/web3.storage/blob"
 	"github.com/storacha/go-ucanto/client"
 	"github.com/storacha/go-ucanto/core/dag/blockstore"
 	"github.com/storacha/go-ucanto/core/delegation"
@@ -226,19 +227,21 @@ func BlobAdd(content io.Reader, issuer principal.Signer, space did.DID, options 
 		return nil, nil, fmt.Errorf("receipt not found: %s", inv.Link())
 	}
 
-	reader, err := receipt.NewReceiptReaderFromTypes[spaceblob.AddOk, fdm.FailureModel](spaceblob.AddOkType(), fdm.FailureType())
-	if err != nil {
-		return nil, nil, fmt.Errorf("generating receipt reader: %w", err)
-	}
+	// reader, err := receipt.NewReceiptReaderFromTypes[spaceblob.AddOk, fdm.FailureModel](spaceblob.AddOkType(), fdm.FailureType())
+	// if err != nil {
+	// 	return nil, nil, fmt.Errorf("generating receipt reader: %w", err)
+	// }
+	reader := receipt.NewAnyReceiptReader(captypes.Converters...)
 
 	rcpt, err := reader.Read(rcptlnk, resp.Blocks())
 	if err != nil {
 		return nil, nil, fmt.Errorf("reading receipt: %w", err)
 	}
 
-	_, err = result.Unwrap(result.MapError(rcpt.Out(), failure.FromFailureModel))
-	if err != nil {
-		return nil, nil, fmt.Errorf("blob add failed: %w", err)
+	//_, err = result.Unwrap(result.MapError(rcpt.Out(), failure.FromFailureModel))
+	_, fail := result.Unwrap(rcpt.Out())
+	if fail != nil {
+		return nil, nil, fmt.Errorf("blob add failed: %w", fail)
 	}
 
 	var allocateTask, putTask, acceptTask invocation.Invocation
@@ -249,12 +252,20 @@ func BlobAdd(content io.Reader, issuer principal.Signer, space did.DID, options 
 			switch inv.Capabilities()[0].Can() {
 			case blob.AllocateAbility:
 				allocateTask = inv
+			case w3sBlob.AllocateAbility:
+				if allocateTask == nil {
+					allocateTask = inv
+				}
 			case ucancap.ConcludeAbility:
 				concludeFxs = append(concludeFxs, inv)
 			case httpcap.PutAbility:
 				putTask = inv
 			case blob.AcceptAbility:
 				acceptTask = inv
+			case w3sBlob.AcceptAbility:
+				if acceptTask == nil {
+					acceptTask = inv
+				}
 			}
 		}
 	}
@@ -264,8 +275,10 @@ func BlobAdd(content io.Reader, issuer principal.Signer, space did.DID, options 
 	}
 
 	var allocateRcpt receipt.Receipt[blob.AllocateOk, fdm.FailureModel]
+	var legacyAllocateRcpt receipt.Receipt[w3sBlob.AllocateOk, fdm.FailureModel]
 	var putRcpt receipt.AnyReceipt
 	var acceptRcpt receipt.Receipt[*blob.AcceptOk, fdm.FailureModel]
+	var legacyAcceptRcpt receipt.Receipt[*w3sBlob.AcceptOk, fdm.FailureModel]
 	for _, concludeFx := range concludeFxs {
 		concludeRcpt, err := getConcludeReceipt(concludeFx)
 		if err != nil {
@@ -274,36 +287,71 @@ func BlobAdd(content io.Reader, issuer principal.Signer, space did.DID, options 
 
 		switch concludeRcpt.Ran().Link() {
 		case allocateTask.Link():
-			allocateRcpt, err = receipt.Rebind[blob.AllocateOk, fdm.FailureModel](concludeRcpt, blob.AllocateOkType(), fdm.FailureType(), captypes.Converters...)
-			if err != nil {
-				return nil, nil, fmt.Errorf("bad allocate receipt in conclude fx: %w", err)
+			switch allocateTask.Capabilities()[0].Can() {
+			case blob.AllocateAbility:
+				allocateRcpt, err = receipt.Rebind[blob.AllocateOk, fdm.FailureModel](concludeRcpt, blob.AllocateOkType(), fdm.FailureType(), captypes.Converters...)
+				if err != nil {
+					return nil, nil, fmt.Errorf("bad allocate receipt in conclude fx: %w", err)
+				}
+			case w3sBlob.AllocateAbility:
+				legacyAllocateRcpt, err = receipt.Rebind[w3sBlob.AllocateOk, fdm.FailureModel](concludeRcpt, w3sBlob.AllocateOkType(), fdm.FailureType(), captypes.Converters...)
+				if err != nil {
+					return nil, nil, fmt.Errorf("bad allocate receipt in conclude fx: %w", err)
+				}
 			}
 		case putTask.Link():
 			putRcpt = concludeRcpt
 		case acceptTask.Link():
-			acceptRcpt, err = receipt.Rebind[*blob.AcceptOk, fdm.FailureModel](concludeRcpt, blob.AcceptOkType(), fdm.FailureType(), captypes.Converters...)
-			if err != nil {
-				return nil, nil, fmt.Errorf("bad accept receipt in conclude fx: %w", err)
+			switch allocateTask.Capabilities()[0].Can() {
+			case blob.AcceptAbility:
+				acceptRcpt, err = receipt.Rebind[*blob.AcceptOk, fdm.FailureModel](concludeRcpt, blob.AcceptOkType(), fdm.FailureType(), captypes.Converters...)
+				if err != nil {
+					return nil, nil, fmt.Errorf("bad accept receipt in conclude fx: %w", err)
+				}
+			case w3sBlob.AcceptAbility:
+				legacyAcceptRcpt, err = receipt.Rebind[*w3sBlob.AcceptOk, fdm.FailureModel](concludeRcpt, w3sBlob.AcceptOkType(), fdm.FailureType(), captypes.Converters...)
+				if err != nil {
+					return nil, nil, fmt.Errorf("bad accept receipt in conclude fx: %w", err)
+				}
 			}
 		}
 	}
 
-	if allocateRcpt == nil {
+	if allocateRcpt == nil && legacyAllocateRcpt == nil {
 		return nil, nil, fmt.Errorf("mandatory receipts not received in space/blob/add receipt")
 	}
 
-	allocateOk, err := result.Unwrap(result.MapError(allocateRcpt.Out(), failure.FromFailureModel))
-	if err != nil {
-		return nil, nil, fmt.Errorf("blob allocation failed: %w", err)
+	var url url.URL
+	var headers http.Header
+	if allocateRcpt != nil {
+		allocateOk, err := result.Unwrap(result.MapError(allocateRcpt.Out(), failure.FromFailureModel))
+		if err != nil {
+			return nil, nil, fmt.Errorf("blob allocation failed: %w", err)
+		}
+
+		address := allocateOk.Address
+		if address == nil {
+			return nil, nil, fmt.Errorf("blob allocation failed: no address")
+		}
+
+		url = address.URL
+		headers = address.Headers
+	} else {
+		allocateOk, err := result.Unwrap(result.MapError(legacyAllocateRcpt.Out(), failure.FromFailureModel))
+		if err != nil {
+			return nil, nil, fmt.Errorf("blob allocation failed: %w", err)
+		}
+
+		address := allocateOk.Address
+		if address == nil {
+			return nil, nil, fmt.Errorf("blob allocation failed: no address")
+		}
+
+		url = address.URL
+		headers = address.Headers
 	}
 
-	// put the blob where assigned
-	address := allocateOk.Address
-	if address == nil {
-		return nil, nil, fmt.Errorf("blob allocation failed: no address")
-	}
-
-	if err := putBlob(address.URL, address.Headers, content); err != nil {
+	if err := putBlob(url, headers, content); err != nil {
 		return nil, nil, fmt.Errorf("putting blob: %w", err)
 	}
 
@@ -392,6 +440,19 @@ func BlobAdd(content io.Reader, issuer principal.Signer, space did.DID, options 
 	// ensure the blob has been accepted
 	if acceptRcpt != nil {
 		acceptOk, _ := result.Unwrap(acceptRcpt.Out())
+		if acceptOk == nil {
+			acceptRcpt, err = pollAccept(acceptTask.Link(), cfg.conn)
+			if err != nil {
+				return nil, nil, fmt.Errorf("polling blob accept: %w", err)
+			}
+
+			_, acceptFail := result.Unwrap(result.MapError(acceptRcpt.Out(), failure.FromFailureModel))
+			if acceptFail != nil {
+				return nil, nil, fmt.Errorf("blob/accept failed: %w", acceptFail)
+			}
+		}
+	} else if legacyAcceptRcpt != nil {
+		acceptOk, _ := result.Unwrap(legacyAcceptRcpt.Out())
 		if acceptOk == nil {
 			acceptRcpt, err = pollAccept(acceptTask.Link(), cfg.conn)
 			if err != nil {
