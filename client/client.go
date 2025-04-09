@@ -4,10 +4,8 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"maps"
 	"net/http"
 	"net/url"
-	"slices"
 
 	"github.com/ipfs/go-cid"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
@@ -357,84 +355,12 @@ func BlobAdd(content io.Reader, issuer principal.Signer, space did.DID, options 
 	}
 
 	// invoke `ucan/conclude` with `http/put` receipt
-	if putRcpt != nil {
+	if putRcpt == nil {
+		sendPutReceipt(putTask, issuer, cfg.conn.ID(), cfg.conn)
+	} else {
 		putOk, _ := result.Unwrap(putRcpt.Out())
 		if putOk == nil {
-			putKeys, ok := putTask.Facts()[0]["keys"].(map[string]any)
-			if !ok {
-				return nil, nil, fmt.Errorf("invalid put facts")
-			}
-
-			derivedKey, ok := slices.Collect(maps.Values(putKeys))[0].([]byte)
-			if !ok {
-				return nil, nil, fmt.Errorf("invalid derived key")
-			}
-
-			derivedSigner, err := signer.FromRaw(derivedKey)
-			if err != nil {
-				return nil, nil, fmt.Errorf("deriving signer: %w", err)
-			}
-
-			putRcpt, err = receipt.Issue(derivedSigner, result.Ok[httpcap.PutOk, ipld.Builder](httpcap.PutOk{}), ran.FromLink(putTask.Link()))
-			if err != nil {
-				return nil, nil, fmt.Errorf("generating receipt: %w", err)
-			}
-
-			// var concludeFacts []ucan.FactBuilder
-			// for rcptBlock, err := range putRcpt.Blocks() {
-			// 	if err != nil {
-			// 		return nil, nil, fmt.Errorf("getting receipt block: %w", err)
-			// 	}
-
-			// 	concludeFacts = append(concludeFacts, rcptBlock.Link())
-			// }
-
-			httpPutConcludeInvocation, err := ucancap.Conclude.Invoke(
-				derivedSigner,
-				cfg.conn.ID(),
-				issuer.DID().String(),
-				ucancap.ConcludeCaveats{
-					Receipt: putRcpt.Root().Link(),
-				},
-				// delegation.WithFacts(concludeFacts),
-				delegation.WithNoExpiration(),
-			)
-			if err != nil {
-				return nil, nil, fmt.Errorf("generating invocation: %w", err)
-			}
-
-			// attach the receipt to the conclude invocation
-			for rcptBlock, err := range putRcpt.Blocks() {
-				if err != nil {
-					return nil, nil, fmt.Errorf("getting receipt block: %w", err)
-				}
-				httpPutConcludeInvocation.Attach(rcptBlock)
-			}
-
-			resp, err := client.Execute([]invocation.Invocation{httpPutConcludeInvocation}, cfg.conn)
-			if err != nil {
-				return nil, nil, fmt.Errorf("executing conclude invocation: %w", err)
-			}
-
-			rcptlnk, ok := resp.Get(httpPutConcludeInvocation.Link())
-			if !ok {
-				return nil, nil, fmt.Errorf("receipt not found: %s", httpPutConcludeInvocation.Link())
-			}
-
-			reader, err := receipt.NewReceiptReaderFromTypes[ucancap.ConcludeOk, fdm.FailureModel](ucancap.ConcludeOkType(), fdm.FailureType(), captypes.Converters...)
-			if err != nil {
-				return nil, nil, fmt.Errorf("generating receipt reader: %w", err)
-			}
-
-			rcpt, err := reader.Read(rcptlnk, resp.Blocks())
-			if err != nil {
-				return nil, nil, fmt.Errorf("reading receipt: %w", err)
-			}
-
-			_, err = result.Unwrap(result.MapError(rcpt.Out(), failure.FromFailureModel))
-			if err != nil {
-				return nil, nil, fmt.Errorf("ucan/conclude failed: %w", err)
-			}
+			sendPutReceipt(putTask, issuer, cfg.conn.ID(), cfg.conn)
 		}
 	}
 
@@ -519,6 +445,138 @@ func putBlob(url url.URL, headers http.Header, body []byte) error {
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("uploading blob: %s", resp.Status)
+	}
+
+	return nil
+}
+
+func sendPutReceipt(putTask invocation.Invocation, issuer ucan.Signer, audience ucan.Principal, conn client.Connection) error {
+	putKeysNode, ok := putTask.Facts()[0]["keys"].(ipld.Node)
+	if !ok {
+		return fmt.Errorf("invalid put facts")
+	}
+
+	// TODO: define a schema and use bindnode.Rebind rather than doing this manually
+	var id did.DID
+	keys := map[string][]byte{}
+	it := putKeysNode.MapIterator()
+	for !it.Done() {
+		k, v, err := it.Next()
+		if err != nil {
+			return fmt.Errorf("invalid put facts: %w", err)
+		}
+
+		kStr, err := k.AsString()
+		if err != nil {
+			return fmt.Errorf("invalid put facts: %w", err)
+		}
+
+		switch kStr {
+		case "id":
+			// v is a did string
+			vStr, err := v.AsString()
+			if err != nil {
+				return fmt.Errorf("invalid put facts: %w", err)
+			}
+
+			id, err = did.Parse(vStr)
+			if err != nil {
+				return fmt.Errorf("invalid put facts: %w", err)
+			}
+		case "keys":
+			// v is a did to key map
+			it2 := v.MapIterator()
+			for !it2.Done() {
+				k2, v2, err := it2.Next()
+				if err != nil {
+					return fmt.Errorf("invalid put facts: %w", err)
+				}
+
+				k2Str, err := k2.AsString()
+				if err != nil {
+					return fmt.Errorf("invalid put facts: %w", err)
+				}
+
+				v2Bytes, err := v2.AsBytes()
+				if err != nil {
+					return fmt.Errorf("invalid put facts: %w", err)
+				}
+
+				keys[k2Str] = v2Bytes
+			}
+		}
+	}
+
+	derivedKey, ok := keys[id.String()]
+	if !ok {
+		return fmt.Errorf("invalid put facts: missing key for %s", id.String())
+	}
+
+	derivedSigner, err := signer.Decode(derivedKey)
+	if err != nil {
+		return fmt.Errorf("deriving signer: %w", err)
+	}
+
+	putRcpt, err := receipt.Issue(derivedSigner, result.Ok[httpcap.PutOk, ipld.Builder](httpcap.PutOk{}), ran.FromInvocation(putTask))
+	if err != nil {
+		return fmt.Errorf("generating receipt: %w", err)
+	}
+
+	// var concludeFacts []ucan.FactBuilder
+	// for rcptBlock, err := range putRcpt.Blocks() {
+	// 	if err != nil {
+	// 		return nil, nil, fmt.Errorf("getting receipt block: %w", err)
+	// 	}
+
+	// 	concludeFacts = append(concludeFacts, rcptBlock.Link())
+	// }
+
+	httpPutConcludeInvocation, err := ucancap.Conclude.Invoke(
+		issuer,
+		audience,
+		issuer.DID().String(),
+		ucancap.ConcludeCaveats{
+			Receipt: putRcpt.Root().Link(),
+		},
+		// delegation.WithFacts(concludeFacts),
+		delegation.WithNoExpiration(),
+	)
+	if err != nil {
+		return fmt.Errorf("generating invocation: %w", err)
+	}
+
+	// attach the receipt to the conclude invocation
+	for rcptBlock, err := range putRcpt.Blocks() {
+		if err != nil {
+			return fmt.Errorf("getting receipt block: %w", err)
+		}
+
+		httpPutConcludeInvocation.Attach(rcptBlock)
+	}
+
+	resp, err := client.Execute([]invocation.Invocation{httpPutConcludeInvocation}, conn)
+	if err != nil {
+		return fmt.Errorf("executing conclude invocation: %w", err)
+	}
+
+	rcptlnk, ok := resp.Get(httpPutConcludeInvocation.Link())
+	if !ok {
+		return fmt.Errorf("receipt not found: %s", httpPutConcludeInvocation.Link())
+	}
+
+	reader, err := receipt.NewReceiptReaderFromTypes[ucancap.ConcludeOk, fdm.FailureModel](ucancap.ConcludeOkType(), fdm.FailureType(), captypes.Converters...)
+	if err != nil {
+		return fmt.Errorf("generating receipt reader: %w", err)
+	}
+
+	rcpt, err := reader.Read(rcptlnk, resp.Blocks())
+	if err != nil {
+		return fmt.Errorf("reading receipt: %w", err)
+	}
+
+	_, err = result.Unwrap(result.MapError(rcpt.Out(), failure.FromFailureModel))
+	if err != nil {
+		return fmt.Errorf("ucan/conclude failed: %w", err)
 	}
 
 	return nil
