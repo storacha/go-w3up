@@ -94,12 +94,12 @@ func mustReadConfig() *configurationModel {
 
 func MustGetConnection() client.Connection {
 	// service URL & DID
-	serviceURL, err := url.Parse("https://staging.upload.storacha.network")
+	serviceURL, err := url.Parse("https://staging.up.storacha.network")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	servicePrincipal, err := did.Parse("did:web:staging.upload.storacha.network")
+	servicePrincipal, err := did.Parse("did:web:staging.up.storacha.network")
 	if err != nil {
 		log.Fatal(err)
 	}
