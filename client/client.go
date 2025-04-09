@@ -1,6 +1,7 @@
 package client
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"maps"
@@ -351,7 +352,7 @@ func BlobAdd(content io.Reader, issuer principal.Signer, space did.DID, options 
 		headers = address.Headers
 	}
 
-	if err := putBlob(url, headers, content); err != nil {
+	if err := putBlob(url, headers, contentBytes); err != nil {
 		return nil, nil, fmt.Errorf("putting blob: %w", err)
 	}
 
@@ -496,8 +497,8 @@ func getConcludeReceipt(concludeFx invocation.Invocation) (receipt.AnyReceipt, e
 	return rcpt, nil
 }
 
-func putBlob(url url.URL, headers http.Header, body io.Reader) error {
-	req, err := http.NewRequest(http.MethodPut, url.String(), body)
+func putBlob(url url.URL, headers http.Header, body []byte) error {
+	req, err := http.NewRequest(http.MethodPut, url.String(), bytes.NewReader(body))
 	if err != nil {
 		return fmt.Errorf("creating upload request: %w", err)
 	}
@@ -513,6 +514,8 @@ func putBlob(url url.URL, headers http.Header, body io.Reader) error {
 	if err != nil {
 		return fmt.Errorf("uploading blob: %w", err)
 	}
+	io.ReadAll(resp.Body)
+	resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("uploading blob: %s", resp.Status)
