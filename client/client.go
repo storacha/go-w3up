@@ -365,31 +365,18 @@ func BlobAdd(content io.Reader, issuer principal.Signer, space did.DID, options 
 	}
 
 	// ensure the blob has been accepted
-	if acceptRcpt != nil {
-		acceptOk, _ := result.Unwrap(acceptRcpt.Out())
-		if acceptOk == nil {
-			acceptRcpt, err = pollAccept(acceptTask.Link(), cfg.conn)
-			if err != nil {
-				return nil, nil, fmt.Errorf("polling blob accept: %w", err)
-			}
-
-			_, acceptFail := result.Unwrap(result.MapError(acceptRcpt.Out(), failure.FromFailureModel))
-			if acceptFail != nil {
-				return nil, nil, fmt.Errorf("blob/accept failed: %w", acceptFail)
-			}
+	if acceptRcpt == nil && legacyAcceptRcpt == nil {
+		pollAccept(acceptTask.Link(), cfg.conn)
+	} else {
+		var ok any
+		if acceptRcpt != nil {
+			ok, _ = result.Unwrap(acceptRcpt.Out())
+		} else {
+			ok, _ = result.Unwrap(legacyAcceptRcpt.Out())
 		}
-	} else if legacyAcceptRcpt != nil {
-		acceptOk, _ := result.Unwrap(legacyAcceptRcpt.Out())
-		if acceptOk == nil {
-			acceptRcpt, err = pollAccept(acceptTask.Link(), cfg.conn)
-			if err != nil {
-				return nil, nil, fmt.Errorf("polling blob accept: %w", err)
-			}
 
-			_, acceptFail := result.Unwrap(result.MapError(acceptRcpt.Out(), failure.FromFailureModel))
-			if acceptFail != nil {
-				return nil, nil, fmt.Errorf("blob/accept failed: %w", acceptFail)
-			}
+		if ok == nil {
+			pollAccept(acceptTask.Link(), cfg.conn)
 		}
 	}
 
