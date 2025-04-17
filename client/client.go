@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"iter"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/ipfs/go-cid"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
@@ -22,6 +24,7 @@ import (
 	"github.com/storacha/go-ucanto/core/invocation"
 	"github.com/storacha/go-ucanto/core/invocation/ran"
 	"github.com/storacha/go-ucanto/core/ipld"
+	"github.com/storacha/go-ucanto/core/message"
 	"github.com/storacha/go-ucanto/core/receipt"
 	"github.com/storacha/go-ucanto/core/result"
 	"github.com/storacha/go-ucanto/core/result/failure"
@@ -29,6 +32,7 @@ import (
 	"github.com/storacha/go-ucanto/did"
 	"github.com/storacha/go-ucanto/principal"
 	"github.com/storacha/go-ucanto/principal/ed25519/signer"
+	ucanhttp "github.com/storacha/go-ucanto/transport/http"
 	"github.com/storacha/go-ucanto/ucan"
 	"github.com/storacha/go-w3up/capability/storeadd"
 	"github.com/storacha/go-w3up/capability/uploadadd"
@@ -184,7 +188,7 @@ func UploadList(issuer principal.Signer, space did.DID, params uploadlist.Caveat
 //
 // The `space` is the resource the invocation applies to. It is typically the
 // DID of a space.
-func BlobAdd(content io.Reader, issuer principal.Signer, space did.DID, options ...Option) (ipld.Link, delegation.Delegation, error) {
+func BlobAdd(content io.Reader, issuer principal.Signer, space did.DID, receiptsURL *url.URL, options ...Option) (ipld.Link, delegation.Delegation, error) {
 	cfg := ClientConfig{conn: DefaultConnection}
 	for _, opt := range options {
 		if err := opt(&cfg); err != nil {
@@ -244,6 +248,7 @@ func BlobAdd(content io.Reader, issuer principal.Signer, space did.DID, options 
 	}
 
 	var allocateTask, putTask, acceptTask invocation.Invocation
+	legacyAccept := false
 	var concludeFxs []invocation.Invocation
 	for _, task := range rcpt.Fx().Fork() {
 		inv, ok := task.Invocation()
@@ -264,6 +269,7 @@ func BlobAdd(content io.Reader, issuer principal.Signer, space did.DID, options 
 			case w3sBlob.AcceptAbility:
 				if acceptTask == nil {
 					acceptTask = inv
+					legacyAccept = true
 				}
 			}
 		}
@@ -276,8 +282,8 @@ func BlobAdd(content io.Reader, issuer principal.Signer, space did.DID, options 
 	var allocateRcpt receipt.Receipt[blob.AllocateOk, fdm.FailureModel]
 	var legacyAllocateRcpt receipt.Receipt[w3sBlob.AllocateOk, fdm.FailureModel]
 	var putRcpt receipt.AnyReceipt
-	var acceptRcpt receipt.Receipt[*blob.AcceptOk, fdm.FailureModel]
-	var legacyAcceptRcpt receipt.Receipt[*w3sBlob.AcceptOk, fdm.FailureModel]
+	var acceptRcpt receipt.Receipt[blob.AcceptOk, fdm.FailureModel]
+	var legacyAcceptRcpt receipt.Receipt[w3sBlob.AcceptOk, fdm.FailureModel]
 	for _, concludeFx := range concludeFxs {
 		concludeRcpt, err := getConcludeReceipt(concludeFx)
 		if err != nil {
@@ -303,12 +309,12 @@ func BlobAdd(content io.Reader, issuer principal.Signer, space did.DID, options 
 		case acceptTask.Link():
 			switch allocateTask.Capabilities()[0].Can() {
 			case blob.AcceptAbility:
-				acceptRcpt, err = receipt.Rebind[*blob.AcceptOk, fdm.FailureModel](concludeRcpt, blob.AcceptOkType(), fdm.FailureType(), captypes.Converters...)
+				acceptRcpt, err = receipt.Rebind[blob.AcceptOk, fdm.FailureModel](concludeRcpt, blob.AcceptOkType(), fdm.FailureType(), captypes.Converters...)
 				if err != nil {
 					return nil, nil, fmt.Errorf("bad accept receipt in conclude fx: %w", err)
 				}
 			case w3sBlob.AcceptAbility:
-				legacyAcceptRcpt, err = receipt.Rebind[*w3sBlob.AcceptOk, fdm.FailureModel](concludeRcpt, w3sBlob.AcceptOkType(), fdm.FailureType(), captypes.Converters...)
+				legacyAcceptRcpt, err = receipt.Rebind[w3sBlob.AcceptOk, fdm.FailureModel](concludeRcpt, w3sBlob.AcceptOkType(), fdm.FailureType(), captypes.Converters...)
 				if err != nil {
 					return nil, nil, fmt.Errorf("bad accept receipt in conclude fx: %w", err)
 				}
@@ -356,38 +362,85 @@ func BlobAdd(content io.Reader, issuer principal.Signer, space did.DID, options 
 
 	// invoke `ucan/conclude` with `http/put` receipt
 	if putRcpt == nil {
-		sendPutReceipt(putTask, issuer, cfg.conn.ID(), cfg.conn)
+		if err := sendPutReceipt(putTask, issuer, cfg.conn.ID(), cfg.conn); err != nil {
+			return nil, nil, fmt.Errorf("sending put receipt: %w", err)
+		}
 	} else {
 		putOk, _ := result.Unwrap(putRcpt.Out())
 		if putOk == nil {
-			sendPutReceipt(putTask, issuer, cfg.conn.ID(), cfg.conn)
+			if err := sendPutReceipt(putTask, issuer, cfg.conn.ID(), cfg.conn); err != nil {
+				return nil, nil, fmt.Errorf("sending put receipt: %w", err)
+			}
 		}
 	}
 
 	// ensure the blob has been accepted
+	var anyAcceptRcpt receipt.AnyReceipt
+	var site ucan.Link
+	var rcptBlocks iter.Seq2[ipld.Block, error]
 	if acceptRcpt == nil && legacyAcceptRcpt == nil {
-		pollAccept(acceptTask.Link(), cfg.conn)
-	} else {
-		var ok any
-		if acceptRcpt != nil {
-			ok, _ = result.Unwrap(acceptRcpt.Out())
-		} else {
-			ok, _ = result.Unwrap(legacyAcceptRcpt.Out())
+		anyAcceptRcpt, err = pollAccept(acceptTask.Link(), cfg.conn, receiptsURL)
+		if err != nil {
+			return nil, nil, fmt.Errorf("polling accept: %w", err)
 		}
-
-		if ok == nil {
-			pollAccept(acceptTask.Link(), cfg.conn)
+	} else if acceptRcpt != nil {
+		if acceptRcpt.Out().Ok() == nil {
+			anyAcceptRcpt, err = pollAccept(acceptTask.Link(), cfg.conn, receiptsURL)
+			if err != nil {
+				return nil, nil, fmt.Errorf("polling accept: %w", err)
+			}
+		} else {
+			site = acceptRcpt.Out().Ok().Site
+			rcptBlocks = acceptRcpt.Blocks()
+		}
+	} else if legacyAcceptRcpt != nil {
+		if legacyAcceptRcpt.Out().Ok() == nil {
+			anyAcceptRcpt, err = pollAccept(acceptTask.Link(), cfg.conn, receiptsURL)
+			if err != nil {
+				return nil, nil, fmt.Errorf("polling accept: %w", err)
+			}
+		} else {
+			site = legacyAcceptRcpt.Out().Ok().Site
+			rcptBlocks = legacyAcceptRcpt.Blocks()
 		}
 	}
 
-	acceptOk, _ := result.Unwrap(acceptRcpt.Out())
+	if site == nil {
+		if !legacyAccept {
+			acceptRcpt, err = receipt.Rebind[blob.AcceptOk, fdm.FailureModel](anyAcceptRcpt, blob.AcceptOkType(), fdm.FailureType(), captypes.Converters...)
+			if err != nil {
+				return nil, nil, fmt.Errorf("fetching accept receipt: %w", err)
+			}
 
-	locationBlocks, err := blockstore.NewBlockStore(blockstore.WithBlocksIterator(acceptRcpt.Blocks()))
+			acceptOk, err := result.Unwrap(result.MapError(acceptRcpt.Out(), failure.FromFailureModel))
+			if err != nil {
+				return nil, nil, fmt.Errorf("blob/accept failed: %w", err)
+			}
+
+			site = acceptOk.Site
+			rcptBlocks = acceptRcpt.Blocks()
+		} else {
+			legacyAcceptRcpt, err = receipt.Rebind[w3sBlob.AcceptOk, fdm.FailureModel](anyAcceptRcpt, w3sBlob.AcceptOkType(), fdm.FailureType(), captypes.Converters...)
+			if err != nil {
+				return nil, nil, fmt.Errorf("fetching legacy accept receipt: %w", err)
+			}
+
+			acceptOk, err := result.Unwrap(result.MapError(legacyAcceptRcpt.Out(), failure.FromFailureModel))
+			if err != nil {
+				return nil, nil, fmt.Errorf("web3.storage/blob/accept failed: %w", err)
+			}
+
+			site = acceptOk.Site
+			rcptBlocks = legacyAcceptRcpt.Blocks()
+		}
+	}
+
+	locationBlocks, err := blockstore.NewBlockStore(blockstore.WithBlocksIterator(rcptBlocks))
 	if err != nil {
 		return nil, nil, fmt.Errorf("reading location commitment blocks: %w", err)
 	}
 
-	location, err := delegation.NewDelegationView(acceptOk.Site, locationBlocks)
+	location, err := delegation.NewDelegationView(site, locationBlocks)
 	if err != nil {
 		return nil, nil, fmt.Errorf("creating location delegation: %w", err)
 	}
@@ -569,11 +622,54 @@ func sendPutReceipt(putTask invocation.Invocation, issuer ucan.Signer, audience 
 	return nil
 }
 
-func pollAccept(link ucan.Link, conn client.Connection) (receipt.Receipt[*blob.AcceptOk, fdm.FailureModel], error) {
-	rcpt, err := receipt.Issue(ucan.Signer(signer.Ed25519Signer{}), result.Ok[*blob.AcceptOk, ipld.Builder](&blob.AcceptOk{}), ran.FromLink(link))
+func pollAccept(link ucan.Link, conn client.Connection, receiptsURL *url.URL) (receipt.AnyReceipt, error) {
+	receiptURL := receiptsURL.JoinPath(link.String())
+	req, err := http.NewRequest(http.MethodGet, receiptURL.String(), nil)
 	if err != nil {
-		return nil, fmt.Errorf("generating receipt: %w", err)
+		return nil, fmt.Errorf("creating get request: %w", err)
 	}
 
-	return receipt.Rebind[*blob.AcceptOk, fdm.FailureModel](rcpt, blob.AcceptOkType(), fdm.FailureType())
+	// TODO: custom HTTP client with timeout
+	client := &http.Client{}
+
+	var msg message.AgentMessage
+	for retry := 0; retry < 5 && msg == nil; retry++ {
+		resp, err := client.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("polling receipts endpoint: %w", err)
+		}
+		defer resp.Body.Close()
+
+		respBytes, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, fmt.Errorf("reading response body: %w", err)
+		}
+
+		switch resp.StatusCode {
+		case http.StatusOK:
+			msg, err = conn.Codec().Decode(ucanhttp.NewHTTPResponse(resp.StatusCode, bytes.NewReader(respBytes), resp.Header))
+			if err != nil {
+				return nil, fmt.Errorf("decoding message: %w", err)
+			}
+
+		case http.StatusNotFound:
+			time.Sleep(1 * time.Second)
+
+		default:
+			return nil, fmt.Errorf("polling receipts endpoint: %s", resp.Status)
+		}
+	}
+
+	if msg == nil {
+		return nil, fmt.Errorf("accept receipt not found: %s", link)
+	}
+
+	rcptlnk, ok := msg.Get(link)
+	if !ok {
+		return nil, fmt.Errorf("accept receipt not found: %s", link)
+	}
+
+	reader := receipt.NewAnyReceiptReader(captypes.Converters...)
+
+	return reader.Read(rcptlnk, msg.Blocks())
 }

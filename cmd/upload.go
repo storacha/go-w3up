@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net/url"
 	"os"
 
 	uclient "github.com/storacha/go-ucanto/client"
@@ -26,6 +27,7 @@ func upload(cCtx *cli.Context) error {
 	conn := util.MustGetConnection()
 	space := util.MustParseDID(cCtx.String("space"))
 	proofs := []delegation.Delegation{util.MustGetProof(cCtx.String("proof"))}
+	receiptsURL := util.MustGetReceiptsURL()
 
 	// Handle options
 	isCAR := cCtx.String("car") != ""
@@ -45,20 +47,20 @@ func upload(cCtx *cli.Context) error {
 	var root ipld.Link
 	if isCAR {
 		var err error
-		root, err = uploadCAR(paths[0], signer, conn, space, proofs)
+		root, err = uploadCAR(paths[0], signer, conn, space, proofs, receiptsURL)
 		if err != nil {
 			return err
 		}
 	} else {
 		if len(paths) == 1 && !isWrap {
 			var err error
-			root, err = uploadFile(paths[0], signer, conn, space, proofs)
+			root, err = uploadFile(paths[0], signer, conn, space, proofs, receiptsURL)
 			if err != nil {
 				return err
 			}
 		} else {
 			var err error
-			root, err = uploadDirectory(paths, signer, conn, space, proofs)
+			root, err = uploadDirectory(paths, signer, conn, space, proofs, receiptsURL)
 			if err != nil {
 				return err
 			}
@@ -74,7 +76,7 @@ func upload(cCtx *cli.Context) error {
 	return nil
 }
 
-func uploadCAR(path string, signer principal.Signer, conn uclient.Connection, space did.DID, proofs []delegation.Delegation) (ipld.Link, error) {
+func uploadCAR(path string, signer principal.Signer, conn uclient.Connection, space did.DID, proofs []delegation.Delegation, receiptsURL *url.URL) (ipld.Link, error) {
 	f0, err := os.Open(path)
 	if err != nil {
 		return nil, fmt.Errorf("opening file: %s", err)
@@ -89,7 +91,7 @@ func uploadCAR(path string, signer principal.Signer, conn uclient.Connection, sp
 	}
 
 	if stat.Size() < sharding.ShardSize {
-		link, err := addBlob(f0, signer, conn, space, proofs)
+		link, err := addBlob(f0, signer, conn, space, proofs, receiptsURL)
 		if err != nil {
 			return nil, err
 		}
@@ -110,7 +112,7 @@ func uploadCAR(path string, signer principal.Signer, conn uclient.Connection, sp
 				log.Fatal(err)
 			}
 
-			link, err := addBlob(shd, signer, conn, space, proofs)
+			link, err := addBlob(shd, signer, conn, space, proofs, receiptsURL)
 			if err != nil {
 				return nil, err
 			}
@@ -158,16 +160,16 @@ func uploadCAR(path string, signer principal.Signer, conn uclient.Connection, sp
 	return roots[0], nil
 }
 
-func uploadFile(path string, signer principal.Signer, conn uclient.Connection, space did.DID, proofs []delegation.Delegation) (ipld.Link, error) {
+func uploadFile(path string, signer principal.Signer, conn uclient.Connection, space did.DID, proofs []delegation.Delegation, receiptsURL *url.URL) (ipld.Link, error) {
 	return nil, nil
 }
 
-func uploadDirectory(paths []string, signer principal.Signer, conn uclient.Connection, space did.DID, proofs []delegation.Delegation) (ipld.Link, error) {
+func uploadDirectory(paths []string, signer principal.Signer, conn uclient.Connection, space did.DID, proofs []delegation.Delegation, receiptsURL *url.URL) (ipld.Link, error) {
 	return nil, nil
 }
 
-func addBlob(content io.Reader, signer principal.Signer, conn uclient.Connection, space did.DID, proofs []delegation.Delegation) (ipld.Link, error) {
-	contentLink, _, err := client.BlobAdd(content, signer, space, client.WithConnection(conn), client.WithProofs(proofs))
+func addBlob(content io.Reader, signer principal.Signer, conn uclient.Connection, space did.DID, proofs []delegation.Delegation, receiptsURL *url.URL) (ipld.Link, error) {
+	contentLink, _, err := client.BlobAdd(content, signer, space, receiptsURL, client.WithConnection(conn), client.WithProofs(proofs))
 	if err != nil {
 		return nil, err
 	}
