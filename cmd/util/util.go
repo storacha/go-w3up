@@ -2,6 +2,7 @@ package util
 
 import (
 	_ "embed"
+	"fmt"
 	"log"
 	"net/url"
 	"os"
@@ -19,6 +20,8 @@ import (
 	"github.com/storacha/go-ucanto/transport/http"
 	cdg "github.com/storacha/go-w3up/delegation"
 )
+
+const defaultServiceName = "staging.up.storacha.network"
 
 //go:embed config.ipldsch
 var configsch []byte
@@ -94,12 +97,22 @@ func mustReadConfig() *configurationModel {
 
 func MustGetConnection() client.Connection {
 	// service URL & DID
-	serviceURL, err := url.Parse("https://staging.up.storacha.network")
+	serviceURLStr := os.Getenv("RACHA_SERVICE_URL") // use env var preferably
+	if serviceURLStr == "" {
+		serviceURLStr = fmt.Sprintf("https://%s", defaultServiceName)
+	}
+
+	serviceURL, err := url.Parse(serviceURLStr)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	servicePrincipal, err := did.Parse("did:web:staging.up.storacha.network")
+	serviceDIDStr := os.Getenv("RACHA_SERVICE_DID")
+	if serviceDIDStr == "" {
+		serviceDIDStr = fmt.Sprintf("did:web:%s", defaultServiceName)
+	}
+
+	servicePrincipal, err := did.Parse(serviceDIDStr)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -114,6 +127,20 @@ func MustGetConnection() client.Connection {
 	}
 
 	return conn
+}
+
+func MustGetReceiptsURL() *url.URL {
+	receiptsURLStr := os.Getenv("RACHA_RECEIPTS_URL")
+	if receiptsURLStr == "" {
+		receiptsURLStr = fmt.Sprintf("https://%s/receipt", defaultServiceName)
+	}
+
+	receiptsURL, err := url.Parse(receiptsURLStr)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return receiptsURL
 }
 
 func MustParseDID(str string) did.DID {
