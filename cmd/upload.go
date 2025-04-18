@@ -7,14 +7,16 @@ import (
 	"net/url"
 	"os"
 
+	captypes "github.com/storacha/go-libstoracha/capabilities/types"
+	uploadcap "github.com/storacha/go-libstoracha/capabilities/upload"
 	uclient "github.com/storacha/go-ucanto/client"
 	"github.com/storacha/go-ucanto/core/car"
 	"github.com/storacha/go-ucanto/core/delegation"
+	"github.com/storacha/go-ucanto/core/invocation"
 	"github.com/storacha/go-ucanto/core/ipld"
-	"github.com/storacha/go-ucanto/core/result"
+	"github.com/storacha/go-ucanto/core/receipt"
 	"github.com/storacha/go-ucanto/did"
 	"github.com/storacha/go-ucanto/principal"
-	"github.com/storacha/go-w3up/capability/uploadadd"
 	"github.com/storacha/go-w3up/car/sharding"
 	"github.com/storacha/go-w3up/client"
 	"github.com/storacha/go-w3up/cmd/util"
@@ -138,23 +140,50 @@ func uploadCAR(path string, signer principal.Signer, conn uclient.Connection, sp
 		return nil, fmt.Errorf("missing root CID")
 	}
 
-	rcpt, err := client.UploadAdd(
-		signer,
-		space,
-		uploadadd.Caveat{
-			Root:   roots[0],
-			Shards: shdlnks,
-		},
-		client.WithConnection(conn),
-		client.WithProofs(proofs),
-	)
+	// rcpt, err := client.UploadAdd(
+	// 	signer,
+	// 	space,
+	// 	uploadadd.Caveat{
+	// 		Root:   roots[0],
+	// 		Shards: shdlnks,
+	// 	},
+	// 	client.WithConnection(conn),
+	// 	client.WithProofs(proofs),
+	// )
+	caveats := uploadcap.AddCaveats{
+		Root:   roots[0],
+		Shards: shdlnks,
+	}
+
+	asProofs := []delegation.Proof{}
+	for _, dlg := range proofs {
+		asProofs = append(asProofs, delegation.FromDelegation(dlg))
+	}
+
+	inv, err := uploadcap.Add.Invoke(signer, conn.ID(), space.String(), caveats, delegation.WithProof(asProofs...))
 	if err != nil {
 		return nil, err
 	}
 
-	_, upFailure := result.Unwrap(rcpt.Out())
-	if upFailure != nil {
-		return nil, fmt.Errorf("%+v\n", upFailure)
+	resp, err := uclient.Execute([]invocation.Invocation{inv}, conn)
+	if err != nil {
+		return nil, err
+	}
+
+	rcptlnk, ok := resp.Get(inv.Link())
+	if !ok {
+		return nil, fmt.Errorf("receipt not found: %s", inv.Link())
+	}
+
+	reader := receipt.NewAnyReceiptReader(captypes.Converters...)
+
+	rcpt, err := reader.Read(rcptlnk, resp.Blocks())
+	if err != nil {
+		return nil, err
+	}
+
+	if rcpt.Out().Err() != nil {
+		return nil, fmt.Errorf("%+v", rcpt.Out().Err())
 	}
 
 	return roots[0], nil
