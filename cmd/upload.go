@@ -48,6 +48,7 @@ func upload(cCtx *cli.Context) error {
 
 	var root ipld.Link
 	if isCAR {
+		fmt.Printf("Uploading %s...\n", paths[0])
 		var err error
 		root, err = uploadCAR(paths[0], signer, conn, space, proofs, receiptsURL)
 		if err != nil {
@@ -185,6 +186,8 @@ func uploadCAR(path string, signer principal.Signer, conn uclient.Connection, sp
 	if rcpt.Out().Err() != nil {
 		return nil, fmt.Errorf("%+v", rcpt.Out().Err())
 	}
+
+	fmt.Printf("Uploaded %d bytes\n", stat.Size())
 
 	return roots[0], nil
 }
