@@ -46,8 +46,6 @@ import (
 	"github.com/storacha/go-w3up/client"
 )
 
-var acceptInvocation invocation.Invocation
-
 func TestBlobAdd(t *testing.T) {
 	issuer, err := ed25519signer.Generate()
 	if err != nil {
@@ -74,26 +72,8 @@ func TestBlobAdd(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	mux := http.NewServeMux()
-	httpSrv := httptest.NewServer(mux)
-	defer httpSrv.Close()
-
-	ucanURL, err := url.Parse(httpSrv.URL + "/ucan")
-	if err != nil {
-		t.Fatal(err)
-	}
-	putBlobURL, err := url.Parse(httpSrv.URL + "/blob")
-	if err != nil {
-		t.Fatal(err)
-	}
-	receiptsURL, err := url.Parse(httpSrv.URL + "/receipt")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	ucanSrv := setupTestUCANServer(t, serviceSigner, putBlobURL)
-
-	setupHTTPHandlers(t, mux, ucanSrv, ucanURL, putBlobURL, receiptsURL)
+	testSrv, ucanURL, receiptsURL := newTestServer(t, serviceSigner)
+	defer testSrv.Close()
 
 	channel := uhttp.NewHTTPChannel(ucanURL)
 	codec := car.NewCAROutboundCodec()
@@ -114,6 +94,53 @@ func TestBlobAdd(t *testing.T) {
 
 	_, _, err = client.BlobAdd(testBlob, issuer, space.DID(), receiptsURL, client.WithConnection(conn), client.WithProof(proof))
 	require.NoError(t, err)
+}
+
+type testServer struct {
+	httpSrv       *httptest.Server
+	ucanSrv       server.ServerView
+	acceptedBlobs map[string]acceptedBlobData
+}
+
+type acceptedBlobData struct {
+	AcceptTask      invocation.Invocation
+	StorageProvider principal.Signer
+	Digest          multihash.Multihash
+	Space           did.DID
+	Location        *url.URL
+}
+
+func newTestServer(t *testing.T, serviceSigner principal.Signer) (*testServer, *url.URL, *url.URL) {
+	acceptedBlobs := make(map[string]acceptedBlobData)
+	mux := http.NewServeMux()
+	httpSrv := httptest.NewServer(mux)
+
+	ucanURL, err := url.Parse(httpSrv.URL + "/ucan")
+	if err != nil {
+		t.Fatal(err)
+	}
+	putBlobURL, err := url.Parse(httpSrv.URL + "/blob")
+	if err != nil {
+		t.Fatal(err)
+	}
+	receiptsURL, err := url.Parse(httpSrv.URL + "/receipt")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ucanSrv := setupTestUCANServer(t, serviceSigner, putBlobURL, acceptedBlobs)
+
+	setupHTTPHandlers(t, mux, ucanSrv, ucanURL, putBlobURL, receiptsURL, acceptedBlobs)
+
+	return &testServer{
+		httpSrv:       httpSrv,
+		ucanSrv:       ucanSrv,
+		acceptedBlobs: acceptedBlobs,
+	}, ucanURL, receiptsURL
+}
+
+func (ts *testServer) Close() {
+	ts.httpSrv.Close()
 }
 
 type httpPutFact struct {
@@ -137,7 +164,7 @@ func (hpf httpPutFact) ToIPLD() (map[string]datamodel.Node, error) {
 	}, nil
 }
 
-func setupTestUCANServer(t *testing.T, serverPrincipal principal.Signer, putBlobURL *url.URL) server.ServerView {
+func setupTestUCANServer(t *testing.T, serverPrincipal principal.Signer, putBlobURL *url.URL, acceptedBlobs map[string]acceptedBlobData) server.ServerView {
 	// space/blob/add handler
 	mockSPKey, err := ed25519signer.Generate()
 	if err != nil {
@@ -258,7 +285,13 @@ func setupTestUCANServer(t *testing.T, serverPrincipal principal.Signer, putBlob
 			}
 			acceptInv.Attach(httpPutInv.Root())
 
-			acceptInvocation = acceptInv
+			acceptedBlobs[acceptInv.Link().String()] = acceptedBlobData{
+				AcceptTask:      acceptInv,
+				StorageProvider: mockSPPrincipal,
+				Digest:          blobDigest,
+				Space:           spaceDID,
+				Location:        &allocateResult.Ok().Address.URL,
+			}
 
 			forks := []fx.Effect{
 				fx.FromInvocation(allocateInv),
@@ -311,7 +344,7 @@ func setupTestUCANServer(t *testing.T, serverPrincipal principal.Signer, putBlob
 	return srv
 }
 
-func setupHTTPHandlers(t *testing.T, mux *http.ServeMux, ucanSrv server.ServerView, ucanURL, putBlobURL, receiptsURL *url.URL) {
+func setupHTTPHandlers(t *testing.T, mux *http.ServeMux, ucanSrv server.ServerView, ucanURL, putBlobURL, receiptsURL *url.URL, acceptedBlobs map[string]acceptedBlobData) {
 	// ucan handler
 	ucanPath := fmt.Sprintf("POST %s", ucanURL.Path)
 	mux.HandleFunc(ucanPath, func(w http.ResponseWriter, r *http.Request) {
@@ -354,25 +387,20 @@ func setupHTTPHandlers(t *testing.T, mux *http.ServeMux, ucanSrv server.ServerVi
 			return
 		}
 
-		issuer, err := ed25519signer.Generate()
-		if err != nil {
-			t.Fatal(err)
+		acceptedBlobData, ok := acceptedBlobs[cidStr]
+		if !ok {
+			w.WriteHeader(http.StatusNotFound)
+			return
 		}
 
-		space, err := ed25519signer.Generate()
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		// not a valid location claim, but enough for testing
 		locationClaim, err := assert.Location.Delegate(
-			issuer,
-			space.DID(),
-			space.DID().String(),
+			acceptedBlobData.StorageProvider,
+			acceptedBlobData.Space.DID(),
+			acceptedBlobData.Space.DID().String(),
 			assert.LocationCaveats{
-				Space:    space.DID(),
-				Content:  types.FromHash(randomMultihash(t)),
-				Location: []url.URL{*putBlobURL},
+				Space:    acceptedBlobData.Space.DID(),
+				Content:  types.FromHash(acceptedBlobData.Digest),
+				Location: []url.URL{*acceptedBlobData.Location},
 			},
 			delegation.WithNoExpiration(),
 		)
@@ -380,13 +408,13 @@ func setupHTTPHandlers(t *testing.T, mux *http.ServeMux, ucanSrv server.ServerVi
 			t.Fatal(err)
 		}
 
-		ok := result.Ok[blobcap.AcceptOk, failure.IPLDBuilderFailure](blobcap.AcceptOk{
+		acceptOk := result.Ok[blobcap.AcceptOk, failure.IPLDBuilderFailure](blobcap.AcceptOk{
 			Site: locationClaim.Link(),
 		})
 
 		forks := []fx.Effect{fx.FromInvocation(locationClaim)}
 
-		acceptRcpt, err := receipt.Issue(issuer, ok, ran.FromInvocation(acceptInvocation), receipt.WithFork(forks...))
+		acceptRcpt, err := receipt.Issue(acceptedBlobData.StorageProvider, acceptOk, ran.FromInvocation(acceptedBlobData.AcceptTask), receipt.WithFork(forks...))
 		if err != nil {
 			t.Fatal(err)
 		}
