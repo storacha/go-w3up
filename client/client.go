@@ -244,7 +244,7 @@ func BlobAdd(content io.Reader, issuer principal.Signer, space did.DID, receipts
 	//_, err = result.Unwrap(result.MapError(rcpt.Out(), failure.FromFailureModel))
 	_, fail := result.Unwrap(rcpt.Out())
 	if fail != nil {
-		return nil, nil, fmt.Errorf("blob add failed: %w", fail)
+		return nil, nil, fmt.Errorf("blob add failed: %v", fail)
 	}
 
 	var allocateTask, putTask, acceptTask invocation.Invocation
@@ -491,9 +491,17 @@ func putBlob(url url.URL, headers http.Header, body []byte) error {
 }
 
 func sendPutReceipt(putTask invocation.Invocation, issuer ucan.Signer, audience ucan.Principal, conn client.Connection) error {
+	if len(putTask.Facts()) != 1 {
+		return fmt.Errorf("invalid put facts, wanted 1 fact but got %d", len(putTask.Facts()))
+	}
+
+	if _, ok := putTask.Facts()[0]["keys"]; !ok {
+		return fmt.Errorf("invalid put facts, missing 'keys' field")
+	}
+
 	putKeysNode, ok := putTask.Facts()[0]["keys"].(ipld.Node)
 	if !ok {
-		return fmt.Errorf("invalid put facts")
+		return fmt.Errorf("invalid put facts, 'keys' field is not a node")
 	}
 
 	// TODO: define a schema and use bindnode.Rebind rather than doing this manually
