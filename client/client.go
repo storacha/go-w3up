@@ -34,57 +34,9 @@ import (
 	"github.com/storacha/go-ucanto/principal/ed25519/signer"
 	ucanhttp "github.com/storacha/go-ucanto/transport/http"
 	"github.com/storacha/go-ucanto/ucan"
-	"github.com/storacha/go-w3up/capability/storeadd"
 	"github.com/storacha/go-w3up/capability/uploadadd"
 	"github.com/storacha/go-w3up/capability/uploadlist"
 )
-
-// StoreAdd stores a DAG encoded as a CAR file. The issuer needs proof of
-// `store/add` delegated capability.
-//
-// Required delegated capability proofs: `store/add`
-//
-// The `issuer` is the signing authority that is issuing the UCAN invocation.
-//
-// The `space` is the resource the invocation applies to. It is typically the
-// DID of a space.
-//
-// The `params` are caveats required to perform a `store/add` invocation.
-func StoreAdd(issuer principal.Signer, space did.DID, params storeadd.Caveat, options ...Option) (receipt.Receipt[*storeadd.Success, *storeadd.Failure], error) {
-	cfg := ClientConfig{conn: DefaultConnection}
-	for _, opt := range options {
-		if err := opt(&cfg); err != nil {
-			return nil, err
-		}
-	}
-
-	inv, err := invocation.Invoke(
-		issuer,
-		cfg.conn.ID(),
-		storeadd.NewCapability(space, params),
-		convertToInvocationOptions(cfg)...,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := client.Execute([]invocation.Invocation{inv}, cfg.conn)
-	if err != nil {
-		return nil, err
-	}
-
-	rcptlnk, ok := resp.Get(inv.Link())
-	if !ok {
-		return nil, fmt.Errorf("receipt not found: %s", inv.Link())
-	}
-
-	reader, err := storeadd.NewReceiptReader()
-	if err != nil {
-		return nil, err
-	}
-
-	return reader.Read(rcptlnk, resp.Blocks())
-}
 
 // UploadAdd registers an "upload" with the service. The issuer needs proof of
 // `upload/add` delegated capability.
