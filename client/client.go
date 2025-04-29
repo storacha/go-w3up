@@ -581,8 +581,8 @@ func sendPutReceipt(putTask invocation.Invocation, issuer ucan.Signer, audience 
 	return nil
 }
 
-func pollAccept(link ucan.Link, conn client.Connection, receiptsURL *url.URL) (receipt.AnyReceipt, error) {
-	receiptURL := receiptsURL.JoinPath(link.String())
+func pollAccept(acceptTaskLink ucan.Link, conn client.Connection, receiptsURL *url.URL) (receipt.AnyReceipt, error) {
+	receiptURL := receiptsURL.JoinPath(acceptTaskLink.String())
 	req, err := http.NewRequest(http.MethodGet, receiptURL.String(), nil)
 	if err != nil {
 		return nil, fmt.Errorf("creating get request: %w", err)
@@ -620,12 +620,12 @@ func pollAccept(link ucan.Link, conn client.Connection, receiptsURL *url.URL) (r
 	}
 
 	if msg == nil {
-		return nil, fmt.Errorf("accept receipt not found: %s", link)
+		return nil, fmt.Errorf("accept receipt not found: %s", acceptTaskLink)
 	}
 
-	rcptlnk, ok := msg.Get(link)
+	rcptlnk, ok := msg.Get(acceptTaskLink)
 	if !ok {
-		return nil, fmt.Errorf("accept receipt not found: %s", link)
+		return nil, fmt.Errorf("accept receipt not found: %s", acceptTaskLink)
 	}
 
 	reader := receipt.NewAnyReceiptReader(captypes.Converters...)
