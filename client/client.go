@@ -138,6 +138,9 @@ func UploadList(issuer principal.Signer, space did.DID, params uploadlist.Caveat
 //
 // The `space` is the resource the invocation applies to. It is typically the
 // DID of a space.
+//
+// Returns the multihash of the added blob and the location commitment that contains details about where the
+// blob can be located, or an error if something went wrong.
 func BlobAdd(content io.Reader, issuer principal.Signer, space did.DID, receiptsURL *url.URL, options ...Option) (multihash.Multihash, delegation.Delegation, error) {
 	cfg := ClientConfig{conn: DefaultConnection}
 	for _, opt := range options {
