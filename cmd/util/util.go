@@ -97,7 +97,7 @@ func mustReadConfig() *configurationModel {
 
 func MustGetConnection() client.Connection {
 	// service URL & DID
-	serviceURLStr := os.Getenv("RACHA_SERVICE_URL") // use env var preferably
+	serviceURLStr := os.Getenv("STORACHA_SERVICE_URL") // use env var preferably
 	if serviceURLStr == "" {
 		serviceURLStr = fmt.Sprintf("https://%s", defaultServiceName)
 	}
@@ -107,7 +107,7 @@ func MustGetConnection() client.Connection {
 		log.Fatal(err)
 	}
 
-	serviceDIDStr := os.Getenv("RACHA_SERVICE_DID")
+	serviceDIDStr := os.Getenv("STORACHA_SERVICE_DID")
 	if serviceDIDStr == "" {
 		serviceDIDStr = fmt.Sprintf("did:web:%s", defaultServiceName)
 	}
@@ -130,7 +130,7 @@ func MustGetConnection() client.Connection {
 }
 
 func MustGetReceiptsURL() *url.URL {
-	receiptsURLStr := os.Getenv("RACHA_RECEIPTS_URL")
+	receiptsURLStr := os.Getenv("STORACHA_RECEIPTS_URL")
 	if receiptsURLStr == "" {
 		receiptsURLStr = fmt.Sprintf("https://%s/receipt", defaultServiceName)
 	}
