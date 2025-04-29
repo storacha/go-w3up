@@ -9,8 +9,6 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/ipfs/go-cid"
-	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/multiformats/go-multihash"
 	"github.com/storacha/go-libstoracha/capabilities/blob"
 	httpcap "github.com/storacha/go-libstoracha/capabilities/http"
@@ -140,7 +138,7 @@ func UploadList(issuer principal.Signer, space did.DID, params uploadlist.Caveat
 //
 // The `space` is the resource the invocation applies to. It is typically the
 // DID of a space.
-func BlobAdd(content io.Reader, issuer principal.Signer, space did.DID, receiptsURL *url.URL, options ...Option) (ipld.Link, delegation.Delegation, error) {
+func BlobAdd(content io.Reader, issuer principal.Signer, space did.DID, receiptsURL *url.URL, options ...Option) (multihash.Multihash, delegation.Delegation, error) {
 	cfg := ClientConfig{conn: DefaultConnection}
 	for _, opt := range options {
 		if err := opt(&cfg); err != nil {
@@ -157,8 +155,6 @@ func BlobAdd(content io.Reader, issuer principal.Signer, space did.DID, receipts
 	if err != nil {
 		return nil, nil, fmt.Errorf("computing content multihash: %w", err)
 	}
-
-	contentLink := cidlink.Link{Cid: cid.NewCidV1(0x0202, contentHash)}
 
 	caveats := spaceblob.AddCaveats{
 		Blob: spaceblob.Blob{
@@ -397,7 +393,7 @@ func BlobAdd(content io.Reader, issuer principal.Signer, space did.DID, receipts
 		return nil, nil, fmt.Errorf("creating location delegation: %w", err)
 	}
 
-	return contentLink, location, nil
+	return contentHash, location, nil
 }
 
 func getConcludeReceipt(concludeFx invocation.Invocation) (receipt.AnyReceipt, error) {

@@ -7,6 +7,10 @@ import (
 	"net/url"
 	"os"
 
+	"github.com/ipfs/go-cid"
+	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
+	"github.com/multiformats/go-multicodec"
+	"github.com/multiformats/go-multihash"
 	captypes "github.com/storacha/go-libstoracha/capabilities/types"
 	uploadcap "github.com/storacha/go-libstoracha/capabilities/upload"
 	uclient "github.com/storacha/go-ucanto/client"
@@ -94,10 +98,12 @@ func uploadCAR(path string, signer principal.Signer, conn uclient.Connection, sp
 	}
 
 	if stat.Size() < sharding.ShardSize {
-		link, err := addBlob(f0, signer, conn, space, proofs, receiptsURL)
+		hash, err := addBlob(f0, signer, conn, space, proofs, receiptsURL)
 		if err != nil {
 			return nil, err
 		}
+
+		link := cidlink.Link{Cid: cid.NewCidV1(uint64(multicodec.Car), hash)}
 
 		shdlnks = append(shdlnks, link)
 	} else {
@@ -115,10 +121,12 @@ func uploadCAR(path string, signer principal.Signer, conn uclient.Connection, sp
 				log.Fatal(err)
 			}
 
-			link, err := addBlob(shd, signer, conn, space, proofs, receiptsURL)
+			hash, err := addBlob(shd, signer, conn, space, proofs, receiptsURL)
 			if err != nil {
 				return nil, err
 			}
+
+			link := cidlink.Link{Cid: cid.NewCidV1(uint64(multicodec.Car), hash)}
 
 			shdlnks = append(shdlnks, link)
 		}
@@ -200,11 +208,11 @@ func uploadDirectory(paths []string, signer principal.Signer, conn uclient.Conne
 	return nil, nil
 }
 
-func addBlob(content io.Reader, signer principal.Signer, conn uclient.Connection, space did.DID, proofs []delegation.Delegation, receiptsURL *url.URL) (ipld.Link, error) {
-	contentLink, _, err := client.BlobAdd(content, signer, space, receiptsURL, client.WithConnection(conn), client.WithProofs(proofs))
+func addBlob(content io.Reader, signer principal.Signer, conn uclient.Connection, space did.DID, proofs []delegation.Delegation, receiptsURL *url.URL) (multihash.Multihash, error) {
+	contentHash, _, err := client.BlobAdd(content, signer, space, receiptsURL, client.WithConnection(conn), client.WithProofs(proofs))
 	if err != nil {
 		return nil, err
 	}
 
-	return contentLink, nil
+	return contentHash, nil
 }
