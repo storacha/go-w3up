@@ -10,12 +10,12 @@ import (
 	"time"
 
 	"github.com/multiformats/go-multihash"
-	"github.com/storacha/go-libstoracha/capabilities/blob"
+	blobcap "github.com/storacha/go-libstoracha/capabilities/blob"
 	httpcap "github.com/storacha/go-libstoracha/capabilities/http"
-	spaceblob "github.com/storacha/go-libstoracha/capabilities/space/blob"
+	spaceblobcap "github.com/storacha/go-libstoracha/capabilities/space/blob"
 	captypes "github.com/storacha/go-libstoracha/capabilities/types"
 	ucancap "github.com/storacha/go-libstoracha/capabilities/ucan"
-	w3sBlob "github.com/storacha/go-libstoracha/capabilities/web3.storage/blob"
+	w3sblobcap "github.com/storacha/go-libstoracha/capabilities/web3.storage/blob"
 	"github.com/storacha/go-ucanto/client"
 	"github.com/storacha/go-ucanto/core/dag/blockstore"
 	"github.com/storacha/go-ucanto/core/delegation"
@@ -159,14 +159,14 @@ func BlobAdd(content io.Reader, issuer principal.Signer, space did.DID, receipts
 		return nil, nil, fmt.Errorf("computing content multihash: %w", err)
 	}
 
-	caveats := spaceblob.AddCaveats{
-		Blob: spaceblob.Blob{
+	caveats := spaceblobcap.AddCaveats{
+		Blob: spaceblobcap.Blob{
 			Digest: contentHash,
 			Size:   uint64(len(contentBytes)),
 		},
 	}
 
-	inv, err := spaceblob.Add.Invoke(issuer, cfg.conn.ID(), space.String(), caveats, convertToInvocationOptions(cfg)...)
+	inv, err := spaceblobcap.Add.Invoke(issuer, cfg.conn.ID(), space.String(), caveats, convertToInvocationOptions(cfg)...)
 	if err != nil {
 		return nil, nil, fmt.Errorf("generating invocation: %w", err)
 	}
@@ -205,9 +205,9 @@ func BlobAdd(content io.Reader, issuer principal.Signer, space did.DID, receipts
 		inv, ok := task.Invocation()
 		if ok {
 			switch inv.Capabilities()[0].Can() {
-			case blob.AllocateAbility:
+			case blobcap.AllocateAbility:
 				allocateTask = inv
-			case w3sBlob.AllocateAbility:
+			case w3sblobcap.AllocateAbility:
 				if allocateTask == nil {
 					allocateTask = inv
 				}
@@ -215,9 +215,9 @@ func BlobAdd(content io.Reader, issuer principal.Signer, space did.DID, receipts
 				concludeFxs = append(concludeFxs, inv)
 			case httpcap.PutAbility:
 				putTask = inv
-			case blob.AcceptAbility:
+			case blobcap.AcceptAbility:
 				acceptTask = inv
-			case w3sBlob.AcceptAbility:
+			case w3sblobcap.AcceptAbility:
 				if acceptTask == nil {
 					acceptTask = inv
 					legacyAccept = true
@@ -230,11 +230,11 @@ func BlobAdd(content io.Reader, issuer principal.Signer, space did.DID, receipts
 		return nil, nil, fmt.Errorf("mandatory tasks not received in space/blob/add receipt")
 	}
 
-	var allocateRcpt receipt.Receipt[blob.AllocateOk, fdm.FailureModel]
-	var legacyAllocateRcpt receipt.Receipt[w3sBlob.AllocateOk, fdm.FailureModel]
+	var allocateRcpt receipt.Receipt[blobcap.AllocateOk, fdm.FailureModel]
+	var legacyAllocateRcpt receipt.Receipt[w3sblobcap.AllocateOk, fdm.FailureModel]
 	var putRcpt receipt.AnyReceipt
-	var acceptRcpt receipt.Receipt[blob.AcceptOk, fdm.FailureModel]
-	var legacyAcceptRcpt receipt.Receipt[w3sBlob.AcceptOk, fdm.FailureModel]
+	var acceptRcpt receipt.Receipt[blobcap.AcceptOk, fdm.FailureModel]
+	var legacyAcceptRcpt receipt.Receipt[w3sblobcap.AcceptOk, fdm.FailureModel]
 	for _, concludeFx := range concludeFxs {
 		concludeRcpt, err := getConcludeReceipt(concludeFx)
 		if err != nil {
@@ -244,13 +244,13 @@ func BlobAdd(content io.Reader, issuer principal.Signer, space did.DID, receipts
 		switch concludeRcpt.Ran().Link() {
 		case allocateTask.Link():
 			switch allocateTask.Capabilities()[0].Can() {
-			case blob.AllocateAbility:
-				allocateRcpt, err = receipt.Rebind[blob.AllocateOk, fdm.FailureModel](concludeRcpt, blob.AllocateOkType(), fdm.FailureType(), captypes.Converters...)
+			case blobcap.AllocateAbility:
+				allocateRcpt, err = receipt.Rebind[blobcap.AllocateOk, fdm.FailureModel](concludeRcpt, blobcap.AllocateOkType(), fdm.FailureType(), captypes.Converters...)
 				if err != nil {
 					return nil, nil, fmt.Errorf("bad allocate receipt in conclude fx: %w", err)
 				}
-			case w3sBlob.AllocateAbility:
-				legacyAllocateRcpt, err = receipt.Rebind[w3sBlob.AllocateOk, fdm.FailureModel](concludeRcpt, w3sBlob.AllocateOkType(), fdm.FailureType(), captypes.Converters...)
+			case w3sblobcap.AllocateAbility:
+				legacyAllocateRcpt, err = receipt.Rebind[w3sblobcap.AllocateOk, fdm.FailureModel](concludeRcpt, w3sblobcap.AllocateOkType(), fdm.FailureType(), captypes.Converters...)
 				if err != nil {
 					return nil, nil, fmt.Errorf("bad allocate receipt in conclude fx: %w", err)
 				}
@@ -259,13 +259,13 @@ func BlobAdd(content io.Reader, issuer principal.Signer, space did.DID, receipts
 			putRcpt = concludeRcpt
 		case acceptTask.Link():
 			switch allocateTask.Capabilities()[0].Can() {
-			case blob.AcceptAbility:
-				acceptRcpt, err = receipt.Rebind[blob.AcceptOk, fdm.FailureModel](concludeRcpt, blob.AcceptOkType(), fdm.FailureType(), captypes.Converters...)
+			case blobcap.AcceptAbility:
+				acceptRcpt, err = receipt.Rebind[blobcap.AcceptOk, fdm.FailureModel](concludeRcpt, blobcap.AcceptOkType(), fdm.FailureType(), captypes.Converters...)
 				if err != nil {
 					return nil, nil, fmt.Errorf("bad accept receipt in conclude fx: %w", err)
 				}
-			case w3sBlob.AcceptAbility:
-				legacyAcceptRcpt, err = receipt.Rebind[w3sBlob.AcceptOk, fdm.FailureModel](concludeRcpt, w3sBlob.AcceptOkType(), fdm.FailureType(), captypes.Converters...)
+			case w3sblobcap.AcceptAbility:
+				legacyAcceptRcpt, err = receipt.Rebind[w3sblobcap.AcceptOk, fdm.FailureModel](concludeRcpt, w3sblobcap.AcceptOkType(), fdm.FailureType(), captypes.Converters...)
 				if err != nil {
 					return nil, nil, fmt.Errorf("bad accept receipt in conclude fx: %w", err)
 				}
@@ -358,7 +358,7 @@ func BlobAdd(content io.Reader, issuer principal.Signer, space did.DID, receipts
 
 	if site == nil {
 		if !legacyAccept {
-			acceptRcpt, err = receipt.Rebind[blob.AcceptOk, fdm.FailureModel](anyAcceptRcpt, blob.AcceptOkType(), fdm.FailureType(), captypes.Converters...)
+			acceptRcpt, err = receipt.Rebind[blobcap.AcceptOk, fdm.FailureModel](anyAcceptRcpt, blobcap.AcceptOkType(), fdm.FailureType(), captypes.Converters...)
 			if err != nil {
 				return nil, nil, fmt.Errorf("fetching accept receipt: %w", err)
 			}
@@ -371,7 +371,7 @@ func BlobAdd(content io.Reader, issuer principal.Signer, space did.DID, receipts
 			site = acceptOk.Site
 			rcptBlocks = acceptRcpt.Blocks()
 		} else {
-			legacyAcceptRcpt, err = receipt.Rebind[w3sBlob.AcceptOk, fdm.FailureModel](anyAcceptRcpt, w3sBlob.AcceptOkType(), fdm.FailureType(), captypes.Converters...)
+			legacyAcceptRcpt, err = receipt.Rebind[w3sblobcap.AcceptOk, fdm.FailureModel](anyAcceptRcpt, w3sblobcap.AcceptOkType(), fdm.FailureType(), captypes.Converters...)
 			if err != nil {
 				return nil, nil, fmt.Errorf("fetching legacy accept receipt: %w", err)
 			}

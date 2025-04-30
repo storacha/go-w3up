@@ -16,11 +16,11 @@ import (
 	"github.com/ipld/go-ipld-prime/fluent/qp"
 	"github.com/ipld/go-ipld-prime/node/basicnode"
 	"github.com/multiformats/go-multihash"
-	"github.com/storacha/go-libstoracha/capabilities/assert"
+	assertcap "github.com/storacha/go-libstoracha/capabilities/assert"
 	blobcap "github.com/storacha/go-libstoracha/capabilities/blob"
 	httpcap "github.com/storacha/go-libstoracha/capabilities/http"
 	spaceblobcap "github.com/storacha/go-libstoracha/capabilities/space/blob"
-	"github.com/storacha/go-libstoracha/capabilities/types"
+	captypes "github.com/storacha/go-libstoracha/capabilities/types"
 	ucancap "github.com/storacha/go-libstoracha/capabilities/ucan"
 	uploadcap "github.com/storacha/go-libstoracha/capabilities/upload"
 	uclient "github.com/storacha/go-ucanto/client"
@@ -230,13 +230,13 @@ func setupTestUCANServer(t *testing.T, serverPrincipal principal.Signer, putBlob
 
 			// add task for http/put
 			httpPutCaveats := httpcap.PutCaveats{
-				URL: types.Promise{
-					UcanAwait: types.Await{
+				URL: captypes.Promise{
+					UcanAwait: captypes.Await{
 						Selector: ".out.ok.address.url",
 						Link:     allocateRcpt.Root().Link()},
 				},
-				Headers: types.Promise{
-					UcanAwait: types.Await{
+				Headers: captypes.Promise{
+					UcanAwait: captypes.Await{
 						Selector: ".out.ok.address.headers",
 						Link:     allocateRcpt.Root().Link()},
 				},
@@ -393,13 +393,13 @@ func setupHTTPHandlers(t *testing.T, mux *http.ServeMux, ucanSrv server.ServerVi
 			return
 		}
 
-		locationClaim, err := assert.Location.Delegate(
+		locationClaim, err := assertcap.Location.Delegate(
 			acceptedBlobData.StorageProvider,
 			acceptedBlobData.Space.DID(),
 			acceptedBlobData.Space.DID().String(),
-			assert.LocationCaveats{
+			assertcap.LocationCaveats{
 				Space:    acceptedBlobData.Space.DID(),
-				Content:  types.FromHash(acceptedBlobData.Digest),
+				Content:  captypes.FromHash(acceptedBlobData.Digest),
 				Location: []url.URL{*acceptedBlobData.Location},
 			},
 			delegation.WithNoExpiration(),
