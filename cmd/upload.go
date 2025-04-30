@@ -100,6 +100,15 @@ func uploadCAR(path string, signer principal.Signer, conn uclient.Connection, sp
 		return nil, fmt.Errorf("%s is a directory, expected a car file", path)
 	}
 
+	roots, blocks, err := car.Decode(f0)
+	if err != nil {
+		return nil, fmt.Errorf("decoding CAR: %w", err)
+	}
+
+	if len(roots) == 0 {
+		return nil, fmt.Errorf("missing root CID")
+	}
+
 	if stat.Size() < sharding.ShardSize {
 		hash, err := addBlob(f0, signer, conn, space, proofs, receiptsURL)
 		if err != nil {
@@ -110,10 +119,6 @@ func uploadCAR(path string, signer principal.Signer, conn uclient.Connection, sp
 
 		shdlnks = append(shdlnks, link)
 	} else {
-		_, blocks, err := car.Decode(f0)
-		if err != nil {
-			return nil, fmt.Errorf("decoding CAR: %w", err)
-		}
 		shds, err := sharding.NewSharder([]ipld.Link{}, blocks)
 		if err != nil {
 			return nil, fmt.Errorf("sharding CAR: %w", err)
@@ -136,21 +141,6 @@ func uploadCAR(path string, signer principal.Signer, conn uclient.Connection, sp
 	}
 
 	// TODO: build, add and register index
-
-	f1, err := os.Open(path)
-	if err != nil {
-		return nil, fmt.Errorf("opening file: %w", err)
-	}
-	defer f1.Close()
-
-	roots, _, err := car.Decode(f1)
-	if err != nil {
-		return nil, fmt.Errorf("reading roots: %w", err)
-	}
-
-	if len(roots) == 0 {
-		return nil, fmt.Errorf("missing root CID")
-	}
 
 	// rcpt, err := client.UploadAdd(
 	// 	signer,
