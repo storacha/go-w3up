@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"io"
-	"log"
 	"net/url"
 	"os"
 
@@ -86,7 +85,7 @@ func upload(cCtx *cli.Context) error {
 func uploadCAR(path string, signer principal.Signer, conn uclient.Connection, space did.DID, proofs []delegation.Delegation, receiptsURL *url.URL) (ipld.Link, error) {
 	f0, err := os.Open(path)
 	if err != nil {
-		return nil, fmt.Errorf("opening file: %s", err)
+		return nil, fmt.Errorf("opening file: %w", err)
 	}
 	defer f0.Close()
 
@@ -94,7 +93,7 @@ func uploadCAR(path string, signer principal.Signer, conn uclient.Connection, sp
 
 	stat, err := f0.Stat()
 	if err != nil {
-		return nil, fmt.Errorf("stat file: %s", err)
+		return nil, fmt.Errorf("stat file: %w", err)
 	}
 
 	if stat.Size() < sharding.ShardSize {
@@ -109,21 +108,21 @@ func uploadCAR(path string, signer principal.Signer, conn uclient.Connection, sp
 	} else {
 		_, blocks, err := car.Decode(f0)
 		if err != nil {
-			log.Fatalf("decoding CAR: %s", err)
+			return nil, fmt.Errorf("decoding CAR: %w", err)
 		}
 		shds, err := sharding.NewSharder([]ipld.Link{}, blocks)
 		if err != nil {
-			log.Fatalf("sharding CAR: %s", err)
+			return nil, fmt.Errorf("sharding CAR: %w", err)
 		}
 
 		for shd, err := range shds {
 			if err != nil {
-				log.Fatal(err)
+				return nil, fmt.Errorf("ranging shards: %w", err)
 			}
 
 			hash, err := addBlob(shd, signer, conn, space, proofs, receiptsURL)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("uploading shard: %w", err)
 			}
 
 			link := cidlink.Link{Cid: cid.NewCidV1(uint64(multicodec.Car), hash)}
@@ -136,13 +135,13 @@ func uploadCAR(path string, signer principal.Signer, conn uclient.Connection, sp
 
 	f1, err := os.Open(path)
 	if err != nil {
-		return nil, fmt.Errorf("opening file: %s", err)
+		return nil, fmt.Errorf("opening file: %w", err)
 	}
 	defer f1.Close()
 
 	roots, _, err := car.Decode(f1)
 	if err != nil {
-		return nil, fmt.Errorf("reading roots: %s", err)
+		return nil, fmt.Errorf("reading roots: %w", err)
 	}
 
 	if len(roots) == 0 {

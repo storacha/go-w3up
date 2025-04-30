@@ -23,13 +23,13 @@ func ExtractProof(b []byte) (delegation.Delegation, error) {
 		// try decode legacy format
 		_, blocks, err := car.Decode(bytes.NewReader(b))
 		if err != nil {
-			return nil, fmt.Errorf("extracting proof: %s", err)
+			return nil, fmt.Errorf("extracting proof: %w", err)
 		}
 
 		var rt block.Block
 		bs, err := blockstore.NewBlockStore()
 		if err != nil {
-			return nil, fmt.Errorf("creating blockstore: %s", err)
+			return nil, fmt.Errorf("creating blockstore: %w", err)
 		}
 
 		for bl, err := range blocks {
@@ -38,11 +38,11 @@ func ExtractProof(b []byte) (delegation.Delegation, error) {
 					break
 				}
 
-				return nil, fmt.Errorf("reading block: %s", err)
+				return nil, fmt.Errorf("reading block: %w", err)
 			}
 
 			if err := bs.Put(bl); err != nil {
-				return nil, fmt.Errorf("putting block: %s", err)
+				return nil, fmt.Errorf("putting block: %w", err)
 			}
 
 			rt = bl
@@ -50,7 +50,7 @@ func ExtractProof(b []byte) (delegation.Delegation, error) {
 
 		proof, err = delegation.NewDelegation(rt, bs)
 		if err != nil {
-			return nil, fmt.Errorf("creating delegation: %s", err)
+			return nil, fmt.Errorf("creating delegation: %w", err)
 		}
 	}
 

@@ -136,7 +136,7 @@ func ls(cCtx *cli.Context) error {
 
 	lsSuccess, lsFailure := result.Unwrap(rcpt.Out())
 	if lsFailure != nil {
-		log.Fatalf("%+v\n", lsFailure)
+		return fmt.Errorf("%+v", lsFailure)
 	}
 
 	for _, r := range lsSuccess.Results {

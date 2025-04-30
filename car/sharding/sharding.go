@@ -36,7 +36,7 @@ func WithShardSize(size int) Option {
 func NewSharderFromCAR(reader io.Reader) (iter.Seq2[io.Reader, error], error) {
 	roots, blocks, err := car.Decode(reader)
 	if err != nil {
-		return nil, fmt.Errorf("decoding CAR: %s", err)
+		return nil, fmt.Errorf("decoding CAR: %w", err)
 	}
 	return NewSharder(roots, blocks)
 }
@@ -51,7 +51,7 @@ func NewSharder(roots []ipld.Link, blocks iter.Seq2[ipld.Block, error], options 
 
 	hdrlen, err := headerEncodingLength(roots)
 	if err != nil {
-		return nil, fmt.Errorf("encoding header: %s", err)
+		return nil, fmt.Errorf("encoding header: %w", err)
 	}
 
 	maxblklen := cfg.shdsize - hdrlen
@@ -150,7 +150,7 @@ func NewSharder(roots []ipld.Link, blocks iter.Seq2[ipld.Block, error], options 
 
 // 					hdrlen, err := headerEncodingLength(roots)
 // 					if err != nil {
-// 						return nil, fmt.Errorf("encoding header: %s", err)
+// 						return nil, fmt.Errorf("encoding header: %w", err)
 // 					}
 
 // 					// if adding CAR root overflows the shard limit we move overflowing

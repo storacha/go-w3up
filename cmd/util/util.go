@@ -159,7 +159,7 @@ func MustGetProof(path string) delegation.Delegation {
 
 	proof, err := cdg.ExtractProof(b)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("extracting proof: %s", err)
 	}
 	return proof
 }
