@@ -286,7 +286,7 @@ func BlobAdd(ctx context.Context, content io.Reader, issuer principal.Signer, sp
 		return nil, nil, fmt.Errorf("mandatory receipts not received in space/blob/add receipt")
 	}
 
-	var url url.URL
+	var url *url.URL
 	var headers http.Header
 	if allocateRcpt != nil {
 		allocateOk, err := result.Unwrap(result.MapError(allocateRcpt.Out(), failure.FromFailureModel))
@@ -295,12 +295,10 @@ func BlobAdd(ctx context.Context, content io.Reader, issuer principal.Signer, sp
 		}
 
 		address := allocateOk.Address
-		if address == nil {
-			return nil, nil, fmt.Errorf("blob allocation failed: no address")
+		if address != nil {
+			url = &address.URL
+			headers = address.Headers
 		}
-
-		url = address.URL
-		headers = address.Headers
 	} else {
 		allocateOk, err := result.Unwrap(result.MapError(legacyAllocateRcpt.Out(), failure.FromFailureModel))
 		if err != nil {
@@ -308,16 +306,16 @@ func BlobAdd(ctx context.Context, content io.Reader, issuer principal.Signer, sp
 		}
 
 		address := allocateOk.Address
-		if address == nil {
-			return nil, nil, fmt.Errorf("blob allocation failed: no address")
+		if address != nil {
+			url = &address.URL
+			headers = address.Headers
 		}
-
-		url = address.URL
-		headers = address.Headers
 	}
 
-	if err := putBlob(ctx, url, headers, contentBytes); err != nil {
-		return nil, nil, fmt.Errorf("putting blob: %w", err)
+	if url != nil && headers != nil {
+		if err := putBlob(ctx, url, headers, contentBytes); err != nil {
+			return nil, nil, fmt.Errorf("putting blob: %w", err)
+		}
 	}
 
 	// invoke `ucan/conclude` with `http/put` receipt
@@ -423,7 +421,7 @@ func getConcludeReceipt(concludeFx invocation.Invocation) (receipt.AnyReceipt, e
 	return rcpt, nil
 }
 
-func putBlob(ctx context.Context, url url.URL, headers http.Header, body []byte) error {
+func putBlob(ctx context.Context, url *url.URL, headers http.Header, body []byte) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPut, url.String(), bytes.NewReader(body))
 	if err != nil {
 		return fmt.Errorf("creating upload request: %w", err)
