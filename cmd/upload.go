@@ -96,6 +96,10 @@ func uploadCAR(path string, signer principal.Signer, conn uclient.Connection, sp
 		return nil, fmt.Errorf("stat file: %w", err)
 	}
 
+	if stat.IsDir() {
+		return nil, fmt.Errorf("%s is a directory, expected a car file", path)
+	}
+
 	if stat.Size() < sharding.ShardSize {
 		hash, err := addBlob(f0, signer, conn, space, proofs, receiptsURL)
 		if err != nil {
