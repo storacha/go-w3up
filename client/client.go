@@ -222,6 +222,8 @@ func BlobAdd(content io.Reader, issuer principal.Signer, space did.DID, receipts
 					acceptTask = inv
 					legacyAccept = true
 				}
+			default:
+				fmt.Printf("[WARN] ignoring unexpected task: %s\n", inv.Capabilities()[0].Can())
 			}
 		}
 	}
@@ -254,6 +256,8 @@ func BlobAdd(content io.Reader, issuer principal.Signer, space did.DID, receipts
 				if err != nil {
 					return nil, nil, fmt.Errorf("bad allocate receipt in conclude fx: %w", err)
 				}
+			default:
+				return nil, nil, fmt.Errorf("unexpected capability in allocate task: %s", allocateTask.Capabilities()[0].Can())
 			}
 		case putTask.Link():
 			putRcpt = concludeRcpt
@@ -269,7 +273,11 @@ func BlobAdd(content io.Reader, issuer principal.Signer, space did.DID, receipts
 				if err != nil {
 					return nil, nil, fmt.Errorf("bad accept receipt in conclude fx: %w", err)
 				}
+			default:
+				return nil, nil, fmt.Errorf("unexpected capability in accept task: %s", acceptTask.Capabilities()[0].Can())
 			}
+		default:
+			fmt.Printf("[WARN] ignoring receipt for unexpected task: %s\n", concludeRcpt.Ran().Link())
 		}
 	}
 
