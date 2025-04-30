@@ -2,6 +2,7 @@ package client
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"iter"
@@ -16,7 +17,7 @@ import (
 	captypes "github.com/storacha/go-libstoracha/capabilities/types"
 	ucancap "github.com/storacha/go-libstoracha/capabilities/ucan"
 	w3sblobcap "github.com/storacha/go-libstoracha/capabilities/web3.storage/blob"
-	"github.com/storacha/go-ucanto/client"
+	uclient "github.com/storacha/go-ucanto/client"
 	"github.com/storacha/go-ucanto/core/dag/blockstore"
 	"github.com/storacha/go-ucanto/core/delegation"
 	"github.com/storacha/go-ucanto/core/invocation"
@@ -65,7 +66,7 @@ func UploadAdd(issuer principal.Signer, space did.DID, params uploadadd.Caveat, 
 		return nil, err
 	}
 
-	resp, err := client.Execute([]invocation.Invocation{inv}, cfg.conn)
+	resp, err := uclient.Execute([]invocation.Invocation{inv}, cfg.conn)
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +112,7 @@ func UploadList(issuer principal.Signer, space did.DID, params uploadlist.Caveat
 		return nil, err
 	}
 
-	resp, err := client.Execute([]invocation.Invocation{inv}, cfg.conn)
+	resp, err := uclient.Execute([]invocation.Invocation{inv}, cfg.conn)
 	if err != nil {
 		return nil, err
 	}
@@ -141,7 +142,7 @@ func UploadList(issuer principal.Signer, space did.DID, params uploadlist.Caveat
 //
 // Returns the multihash of the added blob and the location commitment that contains details about where the
 // blob can be located, or an error if something went wrong.
-func BlobAdd(content io.Reader, issuer principal.Signer, space did.DID, receiptsURL *url.URL, options ...Option) (multihash.Multihash, delegation.Delegation, error) {
+func BlobAdd(ctx context.Context, content io.Reader, issuer principal.Signer, space did.DID, receiptsURL *url.URL, options ...Option) (multihash.Multihash, delegation.Delegation, error) {
 	cfg := ClientConfig{conn: DefaultConnection}
 	for _, opt := range options {
 		if err := opt(&cfg); err != nil {
@@ -171,7 +172,7 @@ func BlobAdd(content io.Reader, issuer principal.Signer, space did.DID, receipts
 		return nil, nil, fmt.Errorf("generating invocation: %w", err)
 	}
 
-	resp, err := client.Execute([]invocation.Invocation{inv}, cfg.conn)
+	resp, err := uclient.Execute([]invocation.Invocation{inv}, cfg.conn)
 	if err != nil {
 		return nil, nil, fmt.Errorf("sending invocation: %w", err)
 	}
@@ -315,7 +316,7 @@ func BlobAdd(content io.Reader, issuer principal.Signer, space did.DID, receipts
 		headers = address.Headers
 	}
 
-	if err := putBlob(url, headers, contentBytes); err != nil {
+	if err := putBlob(ctx, url, headers, contentBytes); err != nil {
 		return nil, nil, fmt.Errorf("putting blob: %w", err)
 	}
 
@@ -338,13 +339,13 @@ func BlobAdd(content io.Reader, issuer principal.Signer, space did.DID, receipts
 	var site ucan.Link
 	var rcptBlocks iter.Seq2[ipld.Block, error]
 	if acceptRcpt == nil && legacyAcceptRcpt == nil {
-		anyAcceptRcpt, err = pollAccept(acceptTask.Link(), cfg.conn, receiptsURL)
+		anyAcceptRcpt, err = pollAccept(ctx, acceptTask.Link(), cfg.conn, receiptsURL)
 		if err != nil {
 			return nil, nil, fmt.Errorf("polling accept: %w", err)
 		}
 	} else if acceptRcpt != nil {
 		if acceptRcpt.Out().Ok() == nil {
-			anyAcceptRcpt, err = pollAccept(acceptTask.Link(), cfg.conn, receiptsURL)
+			anyAcceptRcpt, err = pollAccept(ctx, acceptTask.Link(), cfg.conn, receiptsURL)
 			if err != nil {
 				return nil, nil, fmt.Errorf("polling accept: %w", err)
 			}
@@ -354,7 +355,7 @@ func BlobAdd(content io.Reader, issuer principal.Signer, space did.DID, receipts
 		}
 	} else if legacyAcceptRcpt != nil {
 		if legacyAcceptRcpt.Out().Ok() == nil {
-			anyAcceptRcpt, err = pollAccept(acceptTask.Link(), cfg.conn, receiptsURL)
+			anyAcceptRcpt, err = pollAccept(ctx, acceptTask.Link(), cfg.conn, receiptsURL)
 			if err != nil {
 				return nil, nil, fmt.Errorf("polling accept: %w", err)
 			}
@@ -422,8 +423,8 @@ func getConcludeReceipt(concludeFx invocation.Invocation) (receipt.AnyReceipt, e
 	return rcpt, nil
 }
 
-func putBlob(url url.URL, headers http.Header, body []byte) error {
-	req, err := http.NewRequest(http.MethodPut, url.String(), bytes.NewReader(body))
+func putBlob(ctx context.Context, url url.URL, headers http.Header, body []byte) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPut, url.String(), bytes.NewReader(body))
 	if err != nil {
 		return fmt.Errorf("creating upload request: %w", err)
 	}
@@ -449,7 +450,7 @@ func putBlob(url url.URL, headers http.Header, body []byte) error {
 	return nil
 }
 
-func sendPutReceipt(putTask invocation.Invocation, issuer ucan.Signer, audience ucan.Principal, conn client.Connection) error {
+func sendPutReceipt(putTask invocation.Invocation, issuer ucan.Signer, audience ucan.Principal, conn uclient.Connection) error {
 	if len(putTask.Facts()) != 1 {
 		return fmt.Errorf("invalid put facts, wanted 1 fact but got %d", len(putTask.Facts()))
 	}
@@ -561,7 +562,7 @@ func sendPutReceipt(putTask invocation.Invocation, issuer ucan.Signer, audience 
 		httpPutConcludeInvocation.Attach(rcptBlock)
 	}
 
-	resp, err := client.Execute([]invocation.Invocation{httpPutConcludeInvocation}, conn)
+	resp, err := uclient.Execute([]invocation.Invocation{httpPutConcludeInvocation}, conn)
 	if err != nil {
 		return fmt.Errorf("executing conclude invocation: %w", err)
 	}
@@ -589,9 +590,9 @@ func sendPutReceipt(putTask invocation.Invocation, issuer ucan.Signer, audience 
 	return nil
 }
 
-func pollAccept(acceptTaskLink ucan.Link, conn client.Connection, receiptsURL *url.URL) (receipt.AnyReceipt, error) {
+func pollAccept(ctx context.Context, acceptTaskLink ucan.Link, conn uclient.Connection, receiptsURL *url.URL) (receipt.AnyReceipt, error) {
 	receiptURL := receiptsURL.JoinPath(acceptTaskLink.String())
-	req, err := http.NewRequest(http.MethodGet, receiptURL.String(), nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, receiptURL.String(), nil)
 	if err != nil {
 		return nil, fmt.Errorf("creating get request: %w", err)
 	}

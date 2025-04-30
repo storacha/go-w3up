@@ -2,6 +2,7 @@ package client_test
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"fmt"
 	"io"
@@ -92,7 +93,7 @@ func TestBlobAdd(t *testing.T) {
 
 	testBlob := bytes.NewReader([]byte("test"))
 
-	_, _, err = client.BlobAdd(testBlob, issuer, space.DID(), receiptsURL, client.WithConnection(conn), client.WithProof(proof))
+	_, _, err = client.BlobAdd(context.Background(), testBlob, issuer, space.DID(), receiptsURL, client.WithConnection(conn), client.WithProof(proof))
 	require.NoError(t, err)
 }
 

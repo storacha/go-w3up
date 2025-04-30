@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/url"
@@ -53,20 +54,20 @@ func upload(cCtx *cli.Context) error {
 	if isCAR {
 		fmt.Printf("Uploading %s...\n", paths[0])
 		var err error
-		root, err = uploadCAR(paths[0], signer, conn, space, proofs, receiptsURL)
+		root, err = uploadCAR(cCtx.Context, paths[0], signer, conn, space, proofs, receiptsURL)
 		if err != nil {
 			return err
 		}
 	} else {
 		if len(paths) == 1 && !isWrap {
 			var err error
-			root, err = uploadFile(paths[0], signer, conn, space, proofs, receiptsURL)
+			root, err = uploadFile(cCtx.Context, paths[0], signer, conn, space, proofs, receiptsURL)
 			if err != nil {
 				return err
 			}
 		} else {
 			var err error
-			root, err = uploadDirectory(paths, signer, conn, space, proofs, receiptsURL)
+			root, err = uploadDirectory(cCtx.Context, paths, signer, conn, space, proofs, receiptsURL)
 			if err != nil {
 				return err
 			}
@@ -82,7 +83,7 @@ func upload(cCtx *cli.Context) error {
 	return nil
 }
 
-func uploadCAR(path string, signer principal.Signer, conn uclient.Connection, space did.DID, proofs []delegation.Delegation, receiptsURL *url.URL) (ipld.Link, error) {
+func uploadCAR(ctx context.Context, path string, signer principal.Signer, conn uclient.Connection, space did.DID, proofs []delegation.Delegation, receiptsURL *url.URL) (ipld.Link, error) {
 	f0, err := os.Open(path)
 	if err != nil {
 		return nil, fmt.Errorf("opening file: %w", err)
@@ -110,7 +111,7 @@ func uploadCAR(path string, signer principal.Signer, conn uclient.Connection, sp
 	}
 
 	if stat.Size() < sharding.ShardSize {
-		hash, err := addBlob(f0, signer, conn, space, proofs, receiptsURL)
+		hash, err := addBlob(ctx, f0, signer, conn, space, proofs, receiptsURL)
 		if err != nil {
 			return nil, err
 		}
@@ -129,7 +130,7 @@ func uploadCAR(path string, signer principal.Signer, conn uclient.Connection, sp
 				return nil, fmt.Errorf("ranging shards: %w", err)
 			}
 
-			hash, err := addBlob(shd, signer, conn, space, proofs, receiptsURL)
+			hash, err := addBlob(ctx, shd, signer, conn, space, proofs, receiptsURL)
 			if err != nil {
 				return nil, fmt.Errorf("uploading shard: %w", err)
 			}
@@ -193,16 +194,16 @@ func uploadCAR(path string, signer principal.Signer, conn uclient.Connection, sp
 	return roots[0], nil
 }
 
-func uploadFile(path string, signer principal.Signer, conn uclient.Connection, space did.DID, proofs []delegation.Delegation, receiptsURL *url.URL) (ipld.Link, error) {
+func uploadFile(ctx context.Context, path string, signer principal.Signer, conn uclient.Connection, space did.DID, proofs []delegation.Delegation, receiptsURL *url.URL) (ipld.Link, error) {
 	return nil, nil
 }
 
-func uploadDirectory(paths []string, signer principal.Signer, conn uclient.Connection, space did.DID, proofs []delegation.Delegation, receiptsURL *url.URL) (ipld.Link, error) {
+func uploadDirectory(ctx context.Context, paths []string, signer principal.Signer, conn uclient.Connection, space did.DID, proofs []delegation.Delegation, receiptsURL *url.URL) (ipld.Link, error) {
 	return nil, nil
 }
 
-func addBlob(content io.Reader, signer principal.Signer, conn uclient.Connection, space did.DID, proofs []delegation.Delegation, receiptsURL *url.URL) (multihash.Multihash, error) {
-	contentHash, _, err := client.BlobAdd(content, signer, space, receiptsURL, client.WithConnection(conn), client.WithProofs(proofs))
+func addBlob(ctx context.Context, content io.Reader, signer principal.Signer, conn uclient.Connection, space did.DID, proofs []delegation.Delegation, receiptsURL *url.URL) (multihash.Multihash, error) {
+	contentHash, _, err := client.BlobAdd(ctx, content, signer, space, receiptsURL, client.WithConnection(conn), client.WithProofs(proofs))
 	if err != nil {
 		return nil, err
 	}
