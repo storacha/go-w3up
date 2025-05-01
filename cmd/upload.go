@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/url"
@@ -194,11 +195,11 @@ func uploadCAR(ctx context.Context, path string, signer principal.Signer, conn u
 }
 
 func uploadFile(ctx context.Context, path string, signer principal.Signer, conn uclient.Connection, space did.DID, proofs []delegation.Delegation, receiptsURL *url.URL) (ipld.Link, error) {
-	return nil, nil
+	return nil, errors.New("not implemented")
 }
 
 func uploadDirectory(ctx context.Context, paths []string, signer principal.Signer, conn uclient.Connection, space did.DID, proofs []delegation.Delegation, receiptsURL *url.URL) (ipld.Link, error) {
-	return nil, nil
+	return nil, errors.New("not implemented")
 }
 
 func addBlob(ctx context.Context, content io.Reader, signer principal.Signer, conn uclient.Connection, space did.DID, proofs []delegation.Delegation, receiptsURL *url.URL) (multihash.Multihash, error) {
