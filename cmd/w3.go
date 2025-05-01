@@ -72,11 +72,6 @@ func main() {
 						Value: 0,
 						Usage: "Shard uploads into CAR files of approximately this size in bytes.",
 					},
-					&cli.IntFlag{
-						Name:  "concurrent-requests",
-						Value: 5,
-						Usage: "Send up to this many CAR shards concurrently.",
-					},
 				},
 				Action: upload,
 			},

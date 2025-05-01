@@ -41,7 +41,6 @@ func upload(cCtx *cli.Context) error {
 	// isVerbose := cCtx.Bool("verbose")
 	isWrap := cCtx.Bool("wrap")
 	// shardSize := cCtx.Int("shard-size")
-	// concurrentRequests := cCtx.Int("concurrent-requests")
 
 	var paths []string
 	if isCAR {
