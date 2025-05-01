@@ -119,7 +119,7 @@ func uploadCAR(ctx context.Context, path string, signer principal.Signer, conn u
 
 		shdlnks = append(shdlnks, link)
 	} else {
-		shds, err := sharding.NewSharder([]ipld.Link{}, blocks)
+		shds, err := sharding.NewSharder(roots, blocks)
 		if err != nil {
 			return nil, fmt.Errorf("sharding CAR: %w", err)
 		}
