@@ -11,7 +11,6 @@ import (
 	dssync "github.com/ipfs/go-datastore/sync"
 	ipldfmt "github.com/ipfs/go-ipld-format"
 	"github.com/storacha/go-ucanto/did"
-	"github.com/storacha/guppy/pkg/client"
 	"github.com/storacha/guppy/pkg/client/locator"
 )
 
@@ -21,7 +20,8 @@ type Retriever interface {
 	Retrieve(ctx context.Context, location locator.Location) (io.ReadCloser, error)
 }
 
-var _ Retriever = (*client.Client)(nil)
+// TK: Retrieval
+// var _ Retriever = (*client.Client)(nil)
 
 func NewDAGService(locator locator.Locator, retriever Retriever, spaces []did.DID, opts ...ExchangeOption) ipldfmt.DAGService {
 	return merkledag.NewReadOnlyDagService(

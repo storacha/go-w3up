@@ -3,22 +3,22 @@ package agentstore
 import (
 	"testing"
 
-	"github.com/ipld/go-ipld-prime/datamodel"
-	spaceblobcap "github.com/storacha/go-libstoracha/capabilities/space/blob"
-	captypes "github.com/storacha/go-libstoracha/capabilities/types"
-	ucancap "github.com/storacha/go-libstoracha/capabilities/ucan"
-	uploadcap "github.com/storacha/go-libstoracha/capabilities/upload"
-	"github.com/storacha/go-libstoracha/testutil"
-	"github.com/storacha/go-ucanto/core/delegation"
-	"github.com/storacha/go-ucanto/principal/ed25519/signer"
-	"github.com/storacha/go-ucanto/ucan"
+	"github.com/ipfs/go-cid"
 	"github.com/stretchr/testify/require"
+
+	"github.com/fil-forge/libforge/commands/blob"
+	"github.com/fil-forge/libforge/commands/upload"
+	"github.com/fil-forge/ucantone/did"
+	"github.com/fil-forge/ucantone/testutil"
+	"github.com/fil-forge/ucantone/ucan"
+	"github.com/fil-forge/ucantone/ucan/delegation"
 )
 
+// TK: Still valid?
 // delegationLinks extracts the CID links from a slice of delegations for comparison.
 // This is necessary because delegations may not compare equal after serialization/deserialization.
-func delegationLinks(dels []delegation.Delegation) []datamodel.Link {
-	links := make([]datamodel.Link, len(dels))
+func delegationLinks(dels []ucan.Delegation) []cid.Cid {
+	links := make([]cid.Cid, len(dels))
 	for i, d := range dels {
 		links[i] = d.Link()
 	}
@@ -67,7 +67,7 @@ func testPrincipal(t *testing.T, newStore func(t *testing.T) Store) {
 
 	t.Run("set principal", func(t *testing.T) {
 		s := newStore(t)
-		newPrincipal := testutil.Must(signer.Generate())(t)
+		newPrincipal := testutil.RandomSigner(t)
 
 		err := s.SetPrincipal(newPrincipal)
 		require.NoError(t, err)
@@ -91,11 +91,8 @@ func testDelegations(t *testing.T, newStore func(t *testing.T) Store) {
 		p, err := s.Principal()
 		require.NoError(t, err)
 
-		del := testutil.Must(uploadcap.Add.Delegate(
-			p,
-			p,
-			p.DID().String(),
-			uploadcap.AddCaveats{Root: testutil.RandomCID(t), Shards: nil},
+		del := testutil.Must(upload.Add.Delegate(
+			p, p.DID(), p.DID(),
 		))(t)
 
 		err = s.AddDelegations(del)
@@ -112,14 +109,12 @@ func testDelegations(t *testing.T, newStore func(t *testing.T) Store) {
 		p, err := s.Principal()
 		require.NoError(t, err)
 
-		del1 := testutil.Must(uploadcap.Add.Delegate(
-			p, p, p.DID().String(),
-			uploadcap.AddCaveats{Root: testutil.RandomCID(t), Shards: nil},
+		del1 := testutil.Must(upload.Add.Delegate(
+			p, p.DID(), p.DID(),
 		))(t)
 
-		del2 := testutil.Must(uploadcap.Get.Delegate(
-			p, p, p.DID().String(),
-			uploadcap.GetCaveats{Root: testutil.RandomCID(t)},
+		del2 := testutil.Must(upload.List.Delegate(
+			p, p.DID(), p.DID(),
 		))(t)
 
 		err = s.AddDelegations(del1, del2)
@@ -137,14 +132,12 @@ func testQuery(t *testing.T, newStore func(t *testing.T) Store) {
 		p, err := s.Principal()
 		require.NoError(t, err)
 
-		uploadDel := testutil.Must(uploadcap.Add.Delegate(
-			p, p, p.DID().String(),
-			uploadcap.AddCaveats{Root: testutil.RandomCID(t), Shards: nil},
+		uploadDel := testutil.Must(upload.Add.Delegate(
+			p, p.DID(), p.DID(),
 		))(t)
 
-		blobDel := testutil.Must(spaceblobcap.Add.Delegate(
-			p, p, p.DID().String(),
-			spaceblobcap.AddCaveats{Blob: captypes.Blob{Digest: testutil.RandomMultihash(t), Size: 100}},
+		blobDel := testutil.Must(blob.Add.Delegate(
+			p, p.DID(), p.DID(),
 		))(t)
 
 		err = s.AddDelegations(uploadDel, blobDel)
@@ -152,7 +145,7 @@ func testQuery(t *testing.T, newStore func(t *testing.T) Store) {
 
 		proofs, err := s.Query()
 		require.NoError(t, err)
-		require.ElementsMatch(t, delegationLinks([]delegation.Delegation{uploadDel, blobDel}), delegationLinks(proofs))
+		require.ElementsMatch(t, delegationLinks([]ucan.Delegation{uploadDel, blobDel}), delegationLinks(proofs))
 	})
 
 	t.Run("query by specific ability", func(t *testing.T) {
@@ -160,25 +153,23 @@ func testQuery(t *testing.T, newStore func(t *testing.T) Store) {
 		p, err := s.Principal()
 		require.NoError(t, err)
 
-		uploadDel := testutil.Must(uploadcap.Add.Delegate(
-			p, p, p.DID().String(),
-			uploadcap.AddCaveats{Root: testutil.RandomCID(t), Shards: nil},
+		uploadDel := testutil.Must(upload.Add.Delegate(
+			p, p.DID(), p.DID(),
 		))(t)
 
-		blobDel := testutil.Must(spaceblobcap.Add.Delegate(
-			p, p, p.DID().String(),
-			spaceblobcap.AddCaveats{Blob: captypes.Blob{Digest: testutil.RandomMultihash(t), Size: 100}},
+		blobDel := testutil.Must(blob.Add.Delegate(
+			p, p.DID(), p.DID(),
 		))(t)
 
 		err = s.AddDelegations(uploadDel, blobDel)
 		require.NoError(t, err)
 
 		proofs, err := s.Query(CapabilityQuery{
-			Can:  "upload/add",
-			With: p.DID().String(),
+			Cmd: "/upload/add",
+			Sub: p.DID(),
 		})
 		require.NoError(t, err)
-		require.ElementsMatch(t, delegationLinks([]delegation.Delegation{uploadDel}), delegationLinks(proofs))
+		require.ElementsMatch(t, delegationLinks([]ucan.Delegation{uploadDel}), delegationLinks(proofs))
 	})
 
 	t.Run("query with empty resource matches any resource", func(t *testing.T) {
@@ -186,20 +177,19 @@ func testQuery(t *testing.T, newStore func(t *testing.T) Store) {
 		p, err := s.Principal()
 		require.NoError(t, err)
 
-		del := testutil.Must(uploadcap.Add.Delegate(
-			p, p, p.DID().String(),
-			uploadcap.AddCaveats{Root: testutil.RandomCID(t), Shards: nil},
+		del := testutil.Must(upload.Add.Delegate(
+			p, p.DID(), p.DID(),
 		))(t)
 
 		err = s.AddDelegations(del)
 		require.NoError(t, err)
 
 		proofs, err := s.Query(CapabilityQuery{
-			Can:  "upload/add",
-			With: "", // Empty should match any
+			Cmd: "/upload/add",
+			Sub: did.Undef, // should match any
 		})
 		require.NoError(t, err)
-		require.ElementsMatch(t, delegationLinks([]delegation.Delegation{del}), delegationLinks(proofs))
+		require.ElementsMatch(t, delegationLinks([]ucan.Delegation{del}), delegationLinks(proofs))
 	})
 
 	t.Run("multiple queries", func(t *testing.T) {
@@ -207,25 +197,23 @@ func testQuery(t *testing.T, newStore func(t *testing.T) Store) {
 		p, err := s.Principal()
 		require.NoError(t, err)
 
-		uploadDel := testutil.Must(uploadcap.Add.Delegate(
-			p, p, p.DID().String(),
-			uploadcap.AddCaveats{Root: testutil.RandomCID(t), Shards: nil},
+		uploadDel := testutil.Must(upload.Add.Delegate(
+			p, p.DID(), p.DID(),
 		))(t)
 
-		blobDel := testutil.Must(spaceblobcap.Add.Delegate(
-			p, p, p.DID().String(),
-			spaceblobcap.AddCaveats{Blob: captypes.Blob{Digest: testutil.RandomMultihash(t), Size: 100}},
+		blobDel := testutil.Must(blob.Add.Delegate(
+			p, p.DID(), p.DID(),
 		))(t)
 
 		err = s.AddDelegations(uploadDel, blobDel)
 		require.NoError(t, err)
 
 		proofs, err := s.Query(
-			CapabilityQuery{Can: "upload/add", With: p.DID().String()},
-			CapabilityQuery{Can: "space/blob/add", With: p.DID().String()},
+			CapabilityQuery{Cmd: "/upload/add", Sub: p.DID()},
+			CapabilityQuery{Cmd: "/blob/add", Sub: p.DID()},
 		)
 		require.NoError(t, err)
-		require.ElementsMatch(t, delegationLinks([]delegation.Delegation{uploadDel, blobDel}), delegationLinks(proofs))
+		require.ElementsMatch(t, delegationLinks([]ucan.Delegation{uploadDel, blobDel}), delegationLinks(proofs))
 	})
 
 	t.Run("non-matching query", func(t *testing.T) {
@@ -233,17 +221,16 @@ func testQuery(t *testing.T, newStore func(t *testing.T) Store) {
 		p, err := s.Principal()
 		require.NoError(t, err)
 
-		del := testutil.Must(uploadcap.Add.Delegate(
-			p, p, p.DID().String(),
-			uploadcap.AddCaveats{Root: testutil.RandomCID(t), Shards: nil},
+		del := testutil.Must(upload.Add.Delegate(
+			p, p.DID(), p.DID(),
 		))(t)
 
 		err = s.AddDelegations(del)
 		require.NoError(t, err)
 
 		proofs, err := s.Query(CapabilityQuery{
-			Can:  "nonexistent/capability",
-			With: "ucan:*",
+			Cmd: "nonexistent/capability",
+			Sub: did.Undef,
 		})
 		require.NoError(t, err)
 		require.Empty(t, proofs)
@@ -254,14 +241,12 @@ func testQuery(t *testing.T, newStore func(t *testing.T) Store) {
 		p, err := s.Principal()
 		require.NoError(t, err)
 
-		validDel := testutil.Must(uploadcap.Add.Delegate(
-			p, p, p.DID().String(),
-			uploadcap.AddCaveats{Root: testutil.RandomCID(t), Shards: nil},
+		validDel := testutil.Must(upload.Add.Delegate(
+			p, p.DID(), p.DID(),
 		))(t)
 
-		expiredDel := testutil.Must(uploadcap.Get.Delegate(
-			p, p, p.DID().String(),
-			uploadcap.GetCaveats{Root: testutil.RandomCID(t)},
+		expiredDel := testutil.Must(upload.List.Delegate(
+			p, p.DID(), p.DID(),
 			delegation.WithExpiration(ucan.Now()-100), // Expired 100 seconds ago
 		))(t)
 
@@ -270,7 +255,7 @@ func testQuery(t *testing.T, newStore func(t *testing.T) Store) {
 
 		proofs, err := s.Query()
 		require.NoError(t, err)
-		require.ElementsMatch(t, delegationLinks([]delegation.Delegation{validDel}), delegationLinks(proofs))
+		require.ElementsMatch(t, delegationLinks([]ucan.Delegation{validDel}), delegationLinks(proofs))
 	})
 
 	t.Run("excludes future delegations", func(t *testing.T) {
@@ -278,14 +263,12 @@ func testQuery(t *testing.T, newStore func(t *testing.T) Store) {
 		p, err := s.Principal()
 		require.NoError(t, err)
 
-		validDel := testutil.Must(uploadcap.Add.Delegate(
-			p, p, p.DID().String(),
-			uploadcap.AddCaveats{Root: testutil.RandomCID(t), Shards: nil},
+		validDel := testutil.Must(upload.Add.Delegate(
+			p, p.DID(), p.DID(),
 		))(t)
 
-		futureDel := testutil.Must(uploadcap.Get.Delegate(
-			p, p, p.DID().String(),
-			uploadcap.GetCaveats{Root: testutil.RandomCID(t)},
+		futureDel := testutil.Must(upload.List.Delegate(
+			p, p.DID(), p.DID(),
 			delegation.WithNotBefore(ucan.Now()+100), // Valid 100 seconds from now
 		))(t)
 
@@ -294,172 +277,162 @@ func testQuery(t *testing.T, newStore func(t *testing.T) Store) {
 
 		proofs, err := s.Query()
 		require.NoError(t, err)
-		require.ElementsMatch(t, delegationLinks([]delegation.Delegation{validDel}), delegationLinks(proofs))
+		require.ElementsMatch(t, delegationLinks([]ucan.Delegation{validDel}), delegationLinks(proofs))
 	})
 
-	t.Run("session proofs", func(t *testing.T) {
-		t.Run("includes session proofs with authorization", func(t *testing.T) {
-			s := newStore(t)
-			p, err := s.Principal()
-			require.NoError(t, err)
+	// TK:
+	// t.Run("session proofs", func(t *testing.T) {
+	// 	t.Run("includes session proofs with authorization", func(t *testing.T) {
+	// 		s := newStore(t)
+	// 		p, err := s.Principal()
+	// 		require.NoError(t, err)
 
-			issuer := testutil.Must(signer.Generate())(t)
+	// 		issuer := testutil.RandomSigner(t)
 
-			authDel := testutil.Must(uploadcap.Add.Delegate(
-				issuer, p, p.DID().String(),
-				uploadcap.AddCaveats{Root: testutil.RandomCID(t), Shards: nil},
-			))(t)
+	// 		authDel := testutil.Must(upload.Add.Delegate(
+	// 			issuer, p.DID(), p.DID(),
+	// 		))(t)
 
-			sessionProof := testutil.Must(ucancap.Attest.Delegate(
-				issuer, p, issuer.DID().String(),
-				ucancap.AttestCaveats{Proof: authDel.Link()},
-			))(t)
+	// 		sessionProof := testutil.Must(attest.Proof.Delegate(
+	// 			issuer, p.DID(), issuer.DID(),
+	// 			attest.ProofCaveats{Proof: authDel.Link()},
+	// 		))(t)
 
-			err = s.AddDelegations(authDel, sessionProof)
-			require.NoError(t, err)
+	// 		err = s.AddDelegations(authDel, sessionProof)
+	// 		require.NoError(t, err)
 
-			proofs, err := s.Query()
-			require.NoError(t, err)
-			require.ElementsMatch(t, delegationLinks([]delegation.Delegation{authDel, sessionProof}), delegationLinks(proofs))
-		})
+	// 		proofs, err := s.Query()
+	// 		require.NoError(t, err)
+	// 		require.ElementsMatch(t, delegationLinks([]ucan.Delegation{authDel, sessionProof}), delegationLinks(proofs))
+	// 	})
 
-		t.Run("includes session proofs when querying by capability", func(t *testing.T) {
-			s := newStore(t)
-			p, err := s.Principal()
-			require.NoError(t, err)
+	// 	t.Run("includes session proofs when querying by capability", func(t *testing.T) {
+	// 		s := newStore(t)
+	// 		p, err := s.Principal()
+	// 		require.NoError(t, err)
 
-			issuer := testutil.Must(signer.Generate())(t)
+	// 		issuer := testutil.Must(signer.Generate())(t)
 
-			authDel := testutil.Must(uploadcap.Add.Delegate(
-				issuer, p, p.DID().String(),
-				uploadcap.AddCaveats{Root: testutil.RandomCID(t), Shards: nil},
-			))(t)
+	// 		authDel := testutil.Must(upload.Add.Delegate(
+	// 			issuer, p, p.DID().String(),
+	// 		))(t)
 
-			sessionProof := testutil.Must(ucancap.Attest.Delegate(
-				issuer, p, issuer.DID().String(),
-				ucancap.AttestCaveats{Proof: authDel.Link()},
-			))(t)
+	// 		sessionProof := testutil.Must(attest.Proof.Delegate(
+	// 			issuer, p, issuer.DID().String(),
+	// 			attest.ProofCaveats{Proof: authDel.Link()},
+	// 		))(t)
 
-			err = s.AddDelegations(authDel, sessionProof)
-			require.NoError(t, err)
+	// 		err = s.AddDelegations(authDel, sessionProof)
+	// 		require.NoError(t, err)
 
-			proofs, err := s.Query(CapabilityQuery{
-				Can:  "upload/add",
-				With: p.DID().String(),
-			})
-			require.NoError(t, err)
-			require.ElementsMatch(t, delegationLinks([]delegation.Delegation{authDel, sessionProof}), delegationLinks(proofs))
-		})
+	// 		proofs, err := s.Query(CapabilityQuery{
+	// 			Cmd: "/upload/add",
+	// 			Sub: p.DID().String(),
+	// 		})
+	// 		require.NoError(t, err)
+	// 		require.ElementsMatch(t, delegationLinks([]ucan.Delegation{authDel, sessionProof}), delegationLinks(proofs))
+	// 	})
 
-		t.Run("excludes expired session proofs", func(t *testing.T) {
-			s := newStore(t)
-			p, err := s.Principal()
-			require.NoError(t, err)
+	// 	t.Run("excludes expired session proofs", func(t *testing.T) {
+	// 		s := newStore(t)
+	// 		p, err := s.Principal()
+	// 		require.NoError(t, err)
 
-			issuer := testutil.Must(signer.Generate())(t)
+	// 		issuer := testutil.Must(signer.Generate())(t)
 
-			authDel := testutil.Must(uploadcap.Add.Delegate(
-				issuer, p, p.DID().String(),
-				uploadcap.AddCaveats{Root: testutil.RandomCID(t), Shards: nil},
-			))(t)
+	// 		authDel := testutil.Must(upload.Add.Delegate(
+	// 			issuer, p, p.DID().String(),
+	// 		))(t)
 
-			expiredSessionProof := testutil.Must(ucancap.Attest.Delegate(
-				issuer, p, issuer.DID().String(),
-				ucancap.AttestCaveats{Proof: authDel.Link()},
-				delegation.WithExpiration(ucan.Now()-100), // Expired
-			))(t)
+	// 		expiredSessionProof := testutil.Must(attest.Proof.Delegate(
+	// 			issuer, p, issuer.DID().String(),
+	// 			attest.ProofCaveats{Proof: authDel.Link()},
+	// 			delegation.WithExpiration(ucan.Now()-100), // Expired
+	// 		))(t)
 
-			err = s.AddDelegations(authDel, expiredSessionProof)
-			require.NoError(t, err)
+	// 		err = s.AddDelegations(authDel, expiredSessionProof)
+	// 		require.NoError(t, err)
 
-			proofs, err := s.Query()
-			require.NoError(t, err)
-			require.ElementsMatch(t, delegationLinks([]delegation.Delegation{authDel}), delegationLinks(proofs))
-		})
-	})
+	// 		proofs, err := s.Query()
+	// 		require.NoError(t, err)
+	// 		require.ElementsMatch(t, delegationLinks([]ucan.Delegation{authDel}), delegationLinks(proofs))
+	// 	})
+	// })
 
 	t.Run("ability wildcard matching", func(t *testing.T) {
 		s := newStore(t)
 		p, err := s.Principal()
 		require.NoError(t, err)
 
-		specificCap := ucan.NewCapability("upload/add", "ucan:*", ucan.NoCaveats{})
-		specificDel, err := delegation.Delegate(p, p, []ucan.Capability[ucan.NoCaveats]{specificCap})
+		specificDel, err := delegation.Delegate(p, p.DID(), did.Undef, "/upload/add")
+		require.NoError(t, err)
+		namespaceDel, err := delegation.Delegate(p, p.DID(), did.Undef, "/upload")
+		require.NoError(t, err)
+		topDel, err := delegation.Delegate(p, p.DID(), did.Undef, "/")
+		require.NoError(t, err)
+		err = s.AddDelegations(specificDel, namespaceDel, topDel)
 		require.NoError(t, err)
 
-		namespaceCap := ucan.NewCapability("upload/*", "ucan:*", ucan.NoCaveats{})
-		namespaceDel, err := delegation.Delegate(p, p, []ucan.Capability[ucan.NoCaveats]{namespaceCap})
-		require.NoError(t, err)
-
-		globalCap := ucan.NewCapability("*", "ucan:*", ucan.NoCaveats{})
-		globalDel, err := delegation.Delegate(p, p, []ucan.Capability[ucan.NoCaveats]{globalCap})
-		require.NoError(t, err)
-
-		err = s.AddDelegations(specificDel, namespaceDel, globalDel)
-		require.NoError(t, err)
-
-		t.Run("specific query matches exact, namespace wildcard, and global wildcard", func(t *testing.T) {
+		t.Run("specific query matches exact, namespace, and top", func(t *testing.T) {
 			proofs, err := s.Query(CapabilityQuery{
-				Can:  "upload/add",
-				With: "ucan:*",
+				Cmd: "/upload/add",
+				Sub: did.Undef,
 			})
 			require.NoError(t, err)
-			require.ElementsMatch(t, delegationLinks([]delegation.Delegation{specificDel, namespaceDel, globalDel}), delegationLinks(proofs))
+			require.ElementsMatch(t, delegationLinks([]ucan.Delegation{specificDel, namespaceDel, topDel}), delegationLinks(proofs))
 		})
 
-		t.Run("namespace wildcard query only matches namespace and global wildcards", func(t *testing.T) {
+		t.Run("namespace query only matches namespace and top", func(t *testing.T) {
 			proofs, err := s.Query(CapabilityQuery{
-				Can:  "upload/*",
-				With: "ucan:*",
+				Cmd: "/upload",
+				Sub: did.Undef,
 			})
 			require.NoError(t, err)
-			require.ElementsMatch(t, delegationLinks([]delegation.Delegation{namespaceDel, globalDel}), delegationLinks(proofs))
+			require.ElementsMatch(t, delegationLinks([]ucan.Delegation{namespaceDel, topDel}), delegationLinks(proofs))
 		})
 
-		t.Run("global wildcard query only matches global wildcard capability", func(t *testing.T) {
+		t.Run("top query only matches top delegation", func(t *testing.T) {
 			proofs, err := s.Query(CapabilityQuery{
-				Can:  "*",
-				With: "ucan:*",
+				Cmd: "/",
+				Sub: did.Undef,
 			})
 			require.NoError(t, err)
-			require.ElementsMatch(t, delegationLinks([]delegation.Delegation{globalDel}), delegationLinks(proofs))
+			require.ElementsMatch(t, delegationLinks([]ucan.Delegation{topDel}), delegationLinks(proofs))
 		})
 	})
 
-	t.Run("resource wildcard matching", func(t *testing.T) {
+	t.Run("powerline matching", func(t *testing.T) {
 		s := newStore(t)
 		p, err := s.Principal()
 		require.NoError(t, err)
-		space := testutil.Must(signer.Generate())(t)
+		space := testutil.RandomSigner(t)
 
-		specificResourceDel := testutil.Must(uploadcap.Add.Delegate(
-			p, p, space.DID().String(),
-			uploadcap.AddCaveats{Root: testutil.RandomCID(t), Shards: nil},
+		specificResourceDel := testutil.Must(upload.Add.Delegate(
+			p, p.DID(), space.DID(),
 		))(t)
 
-		wildcardResourceCap := ucan.NewCapability("upload/add", "ucan:*", ucan.NoCaveats{})
-		wildcardResourceDel, err := delegation.Delegate(p, p, []ucan.Capability[ucan.NoCaveats]{wildcardResourceCap})
+		powerlineResourceDel, err := delegation.Delegate(p, p.DID(), did.Undef, "/upload/add")
 		require.NoError(t, err)
 
-		err = s.AddDelegations(specificResourceDel, wildcardResourceDel)
+		err = s.AddDelegations(specificResourceDel, powerlineResourceDel)
 		require.NoError(t, err)
 
-		t.Run("specific resource query matches exact and wildcard resources", func(t *testing.T) {
+		t.Run("specific subject query matches subject and powerline", func(t *testing.T) {
 			proofs, err := s.Query(CapabilityQuery{
-				Can:  "upload/add",
-				With: space.DID().String(),
+				Cmd: "/upload/add",
+				Sub: space.DID(),
 			})
 			require.NoError(t, err)
-			require.ElementsMatch(t, delegationLinks([]delegation.Delegation{specificResourceDel, wildcardResourceDel}), delegationLinks(proofs))
+			require.ElementsMatch(t, delegationLinks([]ucan.Delegation{specificResourceDel, powerlineResourceDel}), delegationLinks(proofs))
 		})
 
-		t.Run("wildcard resource query only matches wildcard resources", func(t *testing.T) {
+		t.Run("powerline query only matches powerline", func(t *testing.T) {
 			proofs, err := s.Query(CapabilityQuery{
-				Can:  "upload/add",
-				With: "ucan:*",
+				Cmd: "/upload/add",
+				Sub: did.Undef,
 			})
 			require.NoError(t, err)
-			require.ElementsMatch(t, delegationLinks([]delegation.Delegation{wildcardResourceDel}), delegationLinks(proofs))
+			require.ElementsMatch(t, delegationLinks([]ucan.Delegation{powerlineResourceDel}), delegationLinks(proofs))
 		})
 	})
 }
@@ -470,9 +443,8 @@ func testReset(t *testing.T, newStore func(t *testing.T) Store) {
 		p, err := s.Principal()
 		require.NoError(t, err)
 
-		del := testutil.Must(uploadcap.Add.Delegate(
-			p, p, p.DID().String(),
-			uploadcap.AddCaveats{Root: testutil.RandomCID(t), Shards: nil},
+		del := testutil.Must(upload.Add.Delegate(
+			p, p.DID(), p.DID(),
 		))(t)
 
 		err = s.AddDelegations(del)

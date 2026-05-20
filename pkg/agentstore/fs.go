@@ -6,9 +6,9 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/storacha/go-ucanto/core/delegation"
-	"github.com/storacha/go-ucanto/principal"
-	ed25519 "github.com/storacha/go-ucanto/principal/ed25519/signer"
+	"github.com/fil-forge/ucantone/principal"
+	ed25519 "github.com/fil-forge/ucantone/principal/ed25519"
+	"github.com/fil-forge/ucantone/ucan"
 )
 
 var _ Store = (*FsStore)(nil)
@@ -82,13 +82,13 @@ func (s *FsStore) SetPrincipal(principal principal.Signer) error {
 	return writeToFile(s.path, data)
 }
 
-func (s *FsStore) Delegations() ([]delegation.Delegation, error) {
+func (s *FsStore) Delegations() ([]ucan.Delegation, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.delegations()
 }
 
-func (s *FsStore) AddDelegations(delegs ...delegation.Delegation) error {
+func (s *FsStore) AddDelegations(delegs ...ucan.Delegation) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	data, err := readFromFile(s.path)
@@ -118,7 +118,7 @@ func (s *FsStore) principal() (principal.Signer, error) {
 	return data.Principal, nil
 }
 
-func (s *FsStore) delegations() ([]delegation.Delegation, error) {
+func (s *FsStore) delegations() ([]ucan.Delegation, error) {
 	data, err := readFromFile(s.path)
 	if err != nil {
 		return nil, fmt.Errorf("error reading %q: %w", s.path, err)
@@ -136,7 +136,7 @@ func (s *FsStore) delegations() ([]delegation.Delegation, error) {
 //
 // Additionally, this method includes relevant session proofs (ucan/attest delegations)
 // that attest to the returned authorizations.
-func (s *FsStore) Query(queries ...CapabilityQuery) ([]delegation.Delegation, error) {
+func (s *FsStore) Query(queries ...CapabilityQuery) ([]ucan.Delegation, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	delegations, err := s.delegations()

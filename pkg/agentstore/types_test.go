@@ -6,27 +6,27 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/fil-forge/libforge/commands/blob"
+	"github.com/fil-forge/ucantone/did"
+	"github.com/fil-forge/ucantone/testutil"
+	"github.com/fil-forge/ucantone/ucan"
+	"github.com/fil-forge/ucantone/ucan/delegation"
+	"github.com/fil-forge/ucantone/ucan/delegation/policy"
+	"github.com/ipfs/go-cid"
 	"github.com/multiformats/go-multihash"
-	"github.com/storacha/go-libstoracha/capabilities/space/blob"
-	"github.com/storacha/go-libstoracha/capabilities/types"
-	"github.com/storacha/go-ucanto/core/delegation"
-	"github.com/storacha/go-ucanto/core/ipld"
-	"github.com/storacha/go-ucanto/did"
-	"github.com/storacha/go-ucanto/principal/ed25519/signer"
 	"github.com/stretchr/testify/require"
 )
 
 func TestRoundTripAgentData(t *testing.T) {
-	agentPrincipal, err := signer.Generate()
-	require.NoError(t, err)
+	agentPrincipal := testutil.RandomSigner(t)
 
-	del, err := newDelegation()
+	del, err := newDelegation(t)
 
 	require.NoError(t, err)
 
 	agentData := AgentData{
 		Principal:   agentPrincipal,
-		Delegations: []delegation.Delegation{del},
+		Delegations: []ucan.Delegation{del},
 	}
 
 	str, err := json.Marshal(agentData)
@@ -43,14 +43,13 @@ func TestRoundTripAgentData(t *testing.T) {
 func TestWriteReadAgentData(t *testing.T) {
 	dataFilePath := filepath.Join(t.TempDir(), "agentdata.json")
 
-	agentPrincipal, err := signer.Generate()
-	require.NoError(t, err)
-	del, err := newDelegation()
+	agentPrincipal := testutil.RandomSigner(t)
+	del, err := newDelegation(t)
 	require.NoError(t, err)
 
 	agentData := AgentData{
 		Principal:   agentPrincipal,
-		Delegations: []delegation.Delegation{del},
+		Delegations: []ucan.Delegation{del},
 	}
 
 	err = writeToFile(dataFilePath, agentData)
@@ -63,11 +62,10 @@ func TestWriteReadAgentData(t *testing.T) {
 	require.Equal(t, delegationsCIDs(agentData), delegationsCIDs(agentDataReturned))
 }
 
-func newDelegation() (delegation.Delegation, error) {
-	signer, err := signer.Generate()
-	if err != nil {
-		return nil, err
-	}
+func newDelegation(t *testing.T) (ucan.Delegation, error) {
+	t.Helper()
+
+	signer := testutil.RandomSigner(t)
 
 	audienceDid, err := did.Parse("did:mailto:example.com:alice")
 	if err != nil {
@@ -88,18 +86,18 @@ func newDelegation() (delegation.Delegation, error) {
 	return blob.Add.Delegate(
 		signer,
 		audienceDid,
-		signer.DID().String(),
-		blob.AddCaveats{
-			Blob: types.Blob{
+		signer.DID(),
+		delegation.WithPolicyBuilder(
+			policy.Equal(".blob", blob.Blob{
 				Digest: digest,
 				Size:   uint64(len(bytes)),
-			},
-		},
+			}),
+		),
 	)
 }
 
-func delegationsCIDs(d AgentData) []ipld.Link {
-	cids := make([]ipld.Link, len(d.Delegations))
+func delegationsCIDs(d AgentData) []cid.Cid {
+	cids := make([]cid.Cid, len(d.Delegations))
 	for i, d := range d.Delegations {
 		cids[i] = d.Link()
 	}

@@ -11,8 +11,8 @@ import (
 
 	logging "github.com/ipfs/go-log/v2"
 
-	"github.com/storacha/guppy/cmd"
-	"github.com/storacha/guppy/internal/cmdutil"
+	cmd "github.com/storacha/guppy/cmd"
+	cmdutil "github.com/storacha/guppy/internal/cmdutil"
 	"github.com/storacha/guppy/internal/telemetry"
 )
 

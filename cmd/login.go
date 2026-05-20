@@ -12,7 +12,7 @@ import (
 	"github.com/storacha/go-ucanto/core/delegation"
 	"github.com/storacha/go-ucanto/core/result"
 
-	"github.com/storacha/guppy/internal/cmdutil"
+	cmdutil "github.com/storacha/guppy/internal/cmdutil"
 	"github.com/storacha/guppy/pkg/config"
 	"github.com/storacha/guppy/pkg/didmailto"
 )
