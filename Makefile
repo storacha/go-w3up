@@ -1,4 +1,4 @@
-.PHONY: build test clean migration migrate-up migrate-down migrate-status migrate-reset release guppy-prod guppy-debug docker-setup docker-prod docker-dev
+.PHONY: build test clean migration migrate-up migrate-down migrate-status migrate-reset release guppy-prod guppy-debug docker-setup docker-prod docker-dev docker-dev-local
 
 BINARY ?= guppy
 MIGRATIONS_DIR ?= pkg/preparation/sqlrepo/migrations
@@ -70,3 +70,18 @@ docker-dev: docker-setup
 	  --build-arg DATE=$(DATE) \
 	  --build-arg BUILT_BY=make-debug \
 	  -t guppy:dev .
+
+# Like docker-dev, but vendors local `replace` directives (e.g. `../libracha`)
+# into ./vendor/ first so they end up inside the Docker build context. The
+# vendor dir is removed after the build whether it succeeds or fails.
+docker-dev-local: docker-setup
+	@echo "Vendoring dependencies (including local replaces) for docker build..."
+	go mod vendor
+	@trap 'rm -rf ./vendor' EXIT; \
+	  $(DOCKER) buildx build --platform linux/amd64,linux/arm64 \
+	    -f Dockerfile.dev \
+	    --build-arg VERSION=$(VERSION) \
+	    --build-arg COMMIT=$(COMMIT) \
+	    --build-arg DATE=$(DATE) \
+	    --build-arg BUILT_BY=make-debug-local \
+	    -t guppy:dev .

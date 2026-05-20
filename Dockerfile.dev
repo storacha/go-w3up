@@ -18,19 +18,20 @@ WORKDIR /src
 # When cross-compiling, `go install` drops binaries under
 # $GOPATH/bin/${GOOS}_${GOARCH}/; when native, under $GOPATH/bin/.
 # Normalize both cases by copying into a stable /tools path.
-RUN GOARCH=${TARGETARCH} go install github.com/go-delve/delve/cmd/dlv@latest && \
-    GOARCH=${TARGETARCH} go install github.com/storacha/randdir@latest && \
+RUN GOFLAGS=-mod=mod GOARCH=${TARGETARCH} go install github.com/go-delve/delve/cmd/dlv@latest && \
+    GOFLAGS=-mod=mod GOARCH=${TARGETARCH} go install github.com/storacha/randdir@latest && \
     mkdir -p /tools && \
     find /go/bin -maxdepth 2 -type f -name dlv     -exec cp {} /tools/dlv     \; && \
     find /go/bin -maxdepth 2 -type f -name randdir -exec cp {} /tools/randdir \;
 
-COPY go.mod go.sum ./
-RUN go mod download
-
 COPY . .
 
-# Debug build — no optimizations, no inlining, full symbols
-RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build \
+# Debug build — no optimizations, no inlining, full symbols.
+# `go build` will use ./vendor/ if present (e.g. via `make docker-dev-local`),
+# otherwise it downloads modules — the cache mount keeps that fast across builds.
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build \
     -gcflags="all=-N -l" \
     -ldflags="-X github.com/storacha/guppy/pkg/build.version=${VERSION} \
       -X github.com/storacha/guppy/pkg/build.Commit=${COMMIT} \

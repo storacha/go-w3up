@@ -3,33 +3,32 @@ package client
 import (
 	"fmt"
 
-	uclient "github.com/storacha/go-ucanto/client"
-	rclient "github.com/storacha/go-ucanto/client/retrieval"
-	"github.com/storacha/go-ucanto/core/delegation"
-	"github.com/storacha/go-ucanto/principal"
+	"github.com/fil-forge/ucantone/principal"
+	"github.com/fil-forge/ucantone/ucan"
 	"github.com/storacha/guppy/pkg/agentstore"
-	"github.com/storacha/guppy/pkg/receipt"
 )
 
 // Option is an option configuring a Client.
 type Option func(c *Client) error
 
-// WithConnection configures the connection for the client to use. If one is
-// not provided, the default connection will be used.
-func WithConnection(conn uclient.Connection) Option {
+// WithUcantoneConnection configures the underlying Ucantone client for the
+// Guppy client to use. If one is not provided, [DefaultUcantoneClient] will be
+// used.
+func WithUcantoneConnection(ucantoneClient UcantoneClient) Option {
 	return func(c *Client) error {
-		c.connection = conn
+		c.ucantoneClient = ucantoneClient
 		return nil
 	}
 }
 
+// TK: Retrieval
 // WithReceiptsClient configures the client to use for fetching receipts.
-func WithReceiptsClient(receiptsClient *receipt.Client) Option {
-	return func(c *Client) error {
-		c.receiptsClient = receiptsClient
-		return nil
-	}
-}
+// func WithReceiptsClient(receiptsClient *receipt.Client) Option {
+// 	return func(c *Client) error {
+// 		c.receiptsClient = receiptsClient
+// 		return nil
+// 	}
+// }
 
 // WithStore configures the agent store for the client to use. If one is not
 // provided, a new memory store will be created.
@@ -61,16 +60,17 @@ func WithPrincipal(p principal.Signer) Option {
 // WithAdditionalProofs adds proofs to the client that will be included in
 // Proofs() results but will not be saved to the client's store. This is
 // useful for proofs that are only needed for a single operation.
-func WithAdditionalProofs(proofs ...delegation.Delegation) Option {
+func WithAdditionalProofs(proofs ...ucan.Delegation) Option {
 	return func(c *Client) error {
 		c.additionalProofs = append(c.additionalProofs, proofs...)
 		return nil
 	}
 }
 
-func WithRetrievalOptions(retrievalOpts ...rclient.Option) Option {
-	return func(c *Client) error {
-		c.retrievalOpts = append(c.retrievalOpts, retrievalOpts...)
-		return nil
-	}
-}
+// TK: Retrieval
+// func WithRetrievalOptions(retrievalOpts ...rclient.Option) Option {
+// 	return func(c *Client) error {
+// 		c.retrievalOpts = append(c.retrievalOpts, retrievalOpts...)
+// 		return nil
+// 	}
+// }

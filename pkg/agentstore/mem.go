@@ -3,9 +3,9 @@ package agentstore
 import (
 	"sync"
 
-	"github.com/storacha/go-ucanto/core/delegation"
-	"github.com/storacha/go-ucanto/principal"
-	ed25519 "github.com/storacha/go-ucanto/principal/ed25519/signer"
+	"github.com/fil-forge/ucantone/principal"
+	"github.com/fil-forge/ucantone/principal/ed25519"
+	"github.com/fil-forge/ucantone/ucan"
 )
 
 var _ Store = (*MemStore)(nil)
@@ -51,13 +51,13 @@ func (s *MemStore) SetPrincipal(principal principal.Signer) error {
 	return nil
 }
 
-func (s *MemStore) Delegations() ([]delegation.Delegation, error) {
+func (s *MemStore) Delegations() ([]ucan.Delegation, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.delegations()
 }
 
-func (s *MemStore) AddDelegations(delegs ...delegation.Delegation) error {
+func (s *MemStore) AddDelegations(delegs ...ucan.Delegation) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.data.Delegations = append(s.data.Delegations, delegs...)
@@ -79,7 +79,7 @@ func (s *MemStore) principal() (principal.Signer, error) {
 	return s.data.Principal, nil
 }
 
-func (s *MemStore) delegations() ([]delegation.Delegation, error) {
+func (s *MemStore) delegations() ([]ucan.Delegation, error) {
 	return s.data.Delegations, nil
 }
 
@@ -93,7 +93,7 @@ func (s *MemStore) delegations() ([]delegation.Delegation, error) {
 //
 // Additionally, this method includes relevant session proofs (ucan/attest delegations)
 // that attest to the returned authorizations.
-func (s *MemStore) Query(queries ...CapabilityQuery) ([]delegation.Delegation, error) {
+func (s *MemStore) Query(queries ...CapabilityQuery) ([]ucan.Delegation, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	delegations, err := s.delegations()

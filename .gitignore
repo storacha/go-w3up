@@ -4,6 +4,7 @@ dist/
 /*.gif
 /demo.db*
 guppy
+/vendor/
 
 # Environment Files
 .env*

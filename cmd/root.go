@@ -11,18 +11,10 @@ import (
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/storacha/guppy/cmd/blob"
 	"github.com/storacha/guppy/cmd/unixfs"
 	"github.com/storacha/guppy/pkg/presets"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
-
-	"github.com/storacha/guppy/cmd/account"
-	"github.com/storacha/guppy/cmd/delegation"
-	"github.com/storacha/guppy/cmd/gateway"
-	"github.com/storacha/guppy/cmd/proof"
-	"github.com/storacha/guppy/cmd/space"
-	"github.com/storacha/guppy/cmd/upload"
 )
 
 var (
@@ -101,19 +93,19 @@ func init() {
 
 	// Add Commands
 	rootCmd.AddCommand(
-		whoamiCmd,
-		versionCmd,
-		retrieveCmd,
-		resetCmd,
-		lsCmd,
+		// whoamiCmd,
+		// versionCmd,
+		// retrieveCmd,
+		// resetCmd,
+		// lsCmd,
 		loginCmd,
-		upload.Cmd,
-		space.Cmd,
-		proof.Cmd,
-		gateway.Cmd,
-		delegation.Cmd,
-		account.Cmd,
-		blob.Cmd,
+		// upload.Cmd,
+		// space.Cmd,
+		// proof.Cmd,
+		// gateway.Cmd,
+		// delegation.Cmd,
+		// account.Cmd,
+		// blob.Cmd,
 	)
 }
 

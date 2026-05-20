@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 
 	"github.com/ipfs/go-cid"
@@ -12,34 +11,36 @@ import (
 	"github.com/multiformats/go-multicodec"
 	"github.com/multiformats/go-multihash"
 	"github.com/multiformats/go-varint"
-	"github.com/storacha/go-ucanto/core/delegation"
-	"github.com/storacha/go-ucanto/principal"
-	ed25519signer "github.com/storacha/go-ucanto/principal/ed25519/signer"
-	rsasigner "github.com/storacha/go-ucanto/principal/rsa/signer"
-	"github.com/storacha/go-ucanto/ucan"
+
+	"github.com/fil-forge/ucantone/did"
+	"github.com/fil-forge/ucantone/principal"
+	"github.com/fil-forge/ucantone/principal/ed25519"
+	"github.com/fil-forge/ucantone/principal/secp256k1"
+	"github.com/fil-forge/ucantone/ucan"
+	"github.com/fil-forge/ucantone/ucan/delegation"
 )
 
 type Store interface {
 	HasPrincipal() (bool, error)
 	Principal() (principal.Signer, error)
 	SetPrincipal(principal principal.Signer) error
-	Delegations() ([]delegation.Delegation, error)
-	AddDelegations(delegations ...delegation.Delegation) error
+	Delegations() ([]ucan.Delegation, error)
+	AddDelegations(delegations ...ucan.Delegation) error
 	Reset() error
-	Query(queries ...CapabilityQuery) ([]delegation.Delegation, error)
+	Query(queries ...CapabilityQuery) ([]ucan.Delegation, error)
 }
 
 // CapabilityQuery represents a query to filter proofs by capability.
 type CapabilityQuery struct {
-	// Can is the ability to match (e.g., "store/add"). Use "*" to match all abilities.
-	Can ucan.Ability
-	// With is the resource to match. Use "ucan:*" to match all resources.
-	With ucan.Resource
+	// Cmd is the command to match (e.g., "/store/add"). Use "/" to match all commands.
+	Cmd ucan.Command
+	// Sub is the subject to match. Use [did.Undef] to match all subjects.
+	Sub did.DID
 }
 
 type AgentData struct {
 	Principal   principal.Signer
-	Delegations []delegation.Delegation
+	Delegations []ucan.Delegation
 }
 
 type agentDataSerialized struct {
@@ -50,10 +51,7 @@ type agentDataSerialized struct {
 func (ad AgentData) MarshalJSON() ([]byte, error) {
 	delegations := make([]string, 0, len(ad.Delegations))
 	for _, d := range ad.Delegations {
-		b, err := io.ReadAll(d.Archive())
-		if err != nil {
-			return nil, fmt.Errorf("reading delegation archive: %w", err)
-		}
+		b := d.Bytes()
 		digest, err := multihash.Sum(b, uint64(multicodec.Identity), -1)
 		if err != nil {
 			return nil, fmt.Errorf("creating multihash: %w", err)
@@ -67,7 +65,7 @@ func (ad AgentData) MarshalJSON() ([]byte, error) {
 	}
 
 	return json.Marshal(agentDataSerialized{
-		Principal:   ad.Principal.Encode(),
+		Principal:   ad.Principal.Bytes(),
 		Delegations: delegations,
 	})
 }
@@ -86,14 +84,14 @@ func (ad *AgentData) UnmarshalJSON(b []byte) error {
 	}
 
 	switch code {
-	case ed25519signer.Code:
-		ad.Principal, err = ed25519signer.Decode(s.Principal)
+	case ed25519.Code:
+		ad.Principal, err = ed25519.Decode(s.Principal)
 		if err != nil {
 			return err
 		}
 
-	case rsasigner.Code:
-		ad.Principal, err = rsasigner.Decode(s.Principal)
+	case secp256k1.Code:
+		ad.Principal, err = secp256k1.Decode(s.Principal)
 		if err != nil {
 			return err
 		}
@@ -104,7 +102,7 @@ func (ad *AgentData) UnmarshalJSON(b []byte) error {
 
 	// Delegations
 
-	ad.Delegations = make([]delegation.Delegation, len(s.Delegations))
+	ad.Delegations = make([]ucan.Delegation, len(s.Delegations))
 	for i, b64 := range s.Delegations {
 		cid, err := cid.Decode(b64)
 		if err != nil {
@@ -120,7 +118,7 @@ func (ad *AgentData) UnmarshalJSON(b []byte) error {
 		if err != nil {
 			return fmt.Errorf("decoding delegation multihash %d: %w", i, err)
 		}
-		d, err := delegation.Extract(decoded.Digest)
+		d, err := delegation.Decode(decoded.Digest)
 		if err != nil {
 			return fmt.Errorf("decoding delegation %d: %w", i, err)
 		}

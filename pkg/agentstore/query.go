@@ -1,10 +1,7 @@
 package agentstore
 
 import (
-	ucancap "github.com/storacha/go-libstoracha/capabilities/ucan"
-	"github.com/storacha/go-ucanto/core/delegation"
-	"github.com/storacha/go-ucanto/ucan"
-	"github.com/storacha/go-ucanto/validator"
+	"github.com/fil-forge/ucantone/ucan"
 )
 
 // Query returns delegations that match the given capability queries.
@@ -17,175 +14,157 @@ import (
 //
 // Additionally, this method includes relevant session proofs (ucan/attest delegations)
 // that attest to the returned authorizations.
-func Query(delegations []delegation.Delegation, queries []CapabilityQuery) []delegation.Delegation {
-	now := ucan.Now()
+func Query(delegations []ucan.Delegation, queries []CapabilityQuery) []ucan.Delegation {
+	panic("not reimplemented")
 
-	// Map to track which delegations to include (by CID string)
-	authorizations := make(map[string]delegation.Delegation)
+	// now := ucan.Now()
 
-	// First pass: collect matching authorizations (non-session-proof delegations)
-	for _, del := range delegations {
-		// Filter out expired delegations
-		if exp := del.Expiration(); exp != nil && *exp < now {
-			continue
-		}
+	// // Map to track which delegations to include (by CID string)
+	// authorizations := make(map[string]ucan.Delegation)
 
-		// Filter out delegations that are not yet valid
-		if del.NotBefore() > now {
-			continue
-		}
+	// // First pass: collect matching authorizations (non-session-proof delegations)
+	// for _, del := range delegations {
+	// 	// Filter out expired delegations
+	// 	if exp := del.Expiration(); exp != nil && *exp < now {
+	// 		continue
+	// 	}
 
-		// Skip session proofs in the first pass
-		if isSessionProof(del) {
-			continue
-		}
+	// 	// Filter out delegations that are not yet valid
+	// 	if nb := del.NotBefore(); nb != nil && *nb > now {
+	// 		continue
+	// 	}
 
-		// If no queries, include all non-expired delegations
-		if len(queries) == 0 {
-			authorizations[del.Link().String()] = del
-			continue
-		}
+	// 	// Skip session proofs in the first pass
+	// 	// if isSessionProof(del) {
+	// 	// 	continue
+	// 	// }
 
-		// Check if delegation matches any query
-		if matchesAnyQuery(del, queries) {
-			authorizations[del.Link().String()] = del
-		}
-	}
+	// 	// If no queries, include all non-expired delegations
+	// 	if len(queries) == 0 {
+	// 		authorizations[del.Link().String()] = del
+	// 		continue
+	// 	}
 
-	// Second pass: collect session proofs that attest to the authorizations
-	sessionProofs := getSessionProofs(delegations, now)
+	// 	// Check if delegation matches any query
+	// 	if matchesAnyQuery(del, queries) {
+	// 		authorizations[del.Link().String()] = del
+	// 	}
+	// }
 
-	for authCID := range authorizations {
-		if proofsForAuth, exists := sessionProofs[authCID]; exists {
-			// Add all session proofs for this authorization
-			for _, sessionProof := range proofsForAuth {
-				authorizations[sessionProof.Link().String()] = sessionProof
-			}
-		}
-	}
+	// // Second pass: collect session proofs that attest to the authorizations
+	// // sessionProofs := getSessionProofs(delegations, now)
 
-	// Convert map to slice
-	result := make([]delegation.Delegation, 0, len(authorizations))
-	for _, del := range authorizations {
-		result = append(result, del)
-	}
+	// // for authCID := range authorizations {
+	// // 	if proofsForAuth, exists := sessionProofs[authCID]; exists {
+	// // 		// Add all session proofs for this authorization
+	// // 		for _, sessionProof := range proofsForAuth {
+	// // 			authorizations[sessionProof.Link().String()] = sessionProof
+	// // 		}
+	// // 	}
+	// // }
 
-	return result
+	// // Convert map to slice
+	// result := make([]ucan.Delegation, 0, len(authorizations))
+	// for _, del := range authorizations {
+	// 	result = append(result, del)
+	// }
+
+	// return result
 
 }
 
-// matchesAnyQuery checks if a delegation's capabilities match any of the provided queries.
-func matchesAnyQuery(del delegation.Delegation, queries []CapabilityQuery) bool {
-	caps := del.Capabilities()
-	for _, query := range queries {
-		for _, c := range caps {
-			if matchesCapability(c, query) {
-				return true
-			}
-		}
-	}
-	return false
-}
+// // matchesAnyQuery checks if a delegation's capabilities match any of the provided queries.
+// func matchesAnyQuery(del ucan.Delegation, queries []CapabilityQuery) bool {
+// 	for _, query := range queries {
+// 		if matchesDelegation(del, query) {
+// 			return true
+// 		}
+// 	}
+// 	return false
+// }
 
-// matchesCapability checks if a capability matches a query using the resolution logic
-// from go-ucanto's validator package.
-func matchesCapability(cap ucan.Capability[any], query CapabilityQuery) bool {
-	// Match ability
-	if !matchesAbility(cap.Can(), query.Can) {
-		return false
-	}
+// // matchesDelegation checks if a capability matches a query using the resolution logic
+// // from go-ucanto's validator package.
+// func matchesDelegation(del ucan.Delegation, query CapabilityQuery) bool {
+// 	// Match ability
+// 	if !matchesAbility(del.Can(), query.Can) {
+// 		return false
+// 	}
 
-	// Match resource
-	if !matchesResource(cap.With(), query.With) {
-		return false
-	}
+// 	// Match resource
+// 	if !matchesSubject(del.With(), query.Sub) {
+// 		return false
+// 	}
 
-	return true
-}
+// 	return true
+// }
 
-// matchesAbility checks if a delegation's ability can authorize the query ability.
-// A delegation matches if it has the same ability or a broader wildcard.
-// For example, searching for "upload/add" matches delegations with:
-//   - "upload/add" (exact match)
-//   - "upload/*" (namespace wildcard)
-//   - "*" (global wildcard)
-func matchesAbility(capAbility, queryAbility ucan.Ability) bool {
-	// Exact match
-	if capAbility == queryAbility {
-		return true
-	}
+// // matchesAbility checks if a delegation's ability can authorize the query ability.
+// // A delegation matches if it has the same ability or a broader wildcard.
+// // For example, searching for "upload/add" matches delegations with:
+// //   - "upload/add" (exact match)
+// //   - "upload/*" (namespace wildcard)
+// //   - "*" (global wildcard)
+// func matchesAbility(capAbility, queryAbility ucan.Ability) bool {
+// 	// Exact match
+// 	if capAbility == queryAbility {
+// 		return true
+// 	}
 
-	// Global wildcard in capability
-	if capAbility == "*" {
-		return true
-	}
+// 	// Global wildcard in capability
+// 	if capAbility == "*" {
+// 		return true
+// 	}
 
-	// Namespace wildcard in capability (e.g., capability has "upload/*", query is "upload/add")
-	if len(capAbility) > 2 && capAbility[len(capAbility)-2:] == "/*" {
-		prefix := capAbility[:len(capAbility)-1] // "upload/"
-		return len(queryAbility) >= len(prefix) && queryAbility[:len(prefix)] == prefix
-	}
+// 	// Namespace wildcard in capability (e.g., capability has "upload/*", query is "upload/add")
+// 	if len(capAbility) > 2 && capAbility[len(capAbility)-2:] == "/*" {
+// 		prefix := capAbility[:len(capAbility)-1] // "upload/"
+// 		return len(queryAbility) >= len(prefix) && queryAbility[:len(prefix)] == prefix
+// 	}
 
-	return false
-}
+// 	return false
+// }
 
-// matchesResource checks if a capability's resource matches the query resource.
-// A capability matches if:
-//   - The query resource is empty (matches any capability resource)
-//   - The resources match exactly
-//   - The capability has "ucan:*" (matches any query resource)
-func matchesResource(capResource, queryResource ucan.Resource) bool {
-	return queryResource == "" || capResource == "ucan:*" || queryResource == capResource
-}
+// // TK: Make sure this still makes sense.
+// // matchesSubject checks if a delegation's subject matches the query subject.
+// // A delegation matches if:
+// //   - The query subject is empty (matches any delegation subject)
+// //   - The delegation is empty (matches any query subject)
+// //   - The subjects match exactly
+// func matchesSubject(capResource, queryResource ucan.Resource) bool {
+// 	return queryResource == "" || capResource == "ucan:*" || queryResource == capResource
+// }
 
-// isSessionProof checks if a delegation is a session proof (ucan/attest capability).
-func isSessionProof(del delegation.Delegation) bool {
-	caps := del.Capabilities()
-	if len(caps) == 0 {
-		return false
-	}
-	// A session proof has a ucan/attest capability
-	return caps[0].Can() == ucancap.AttestAbility
-}
+// // isSessionProof checks if a delegation is a session proof (/ucan/attest/proof command).
+// func isSessionProof(del ucan.Delegation) bool {
+// 	return del.Command() == ucan.Command(attest.Proof)
+// }
 
-// getSessionProofs organizes session proofs by the CID of the authorization they attest to.
-// Returns a map from authorization CID string to list of session proof delegations.
-func getSessionProofs(delegations []delegation.Delegation, now ucan.UTCUnixTimestamp) map[string][]delegation.Delegation {
-	proofs := make(map[string][]delegation.Delegation)
+// // getSessionProofs organizes session proofs by the CID of the authorization they attest to.
+// // Returns a map from authorization CID string to list of session proof delegations.
+// func getSessionProofs(delegations []ucan.Delegation, now ucan.UnixTimestamp) map[string][]ucan.Delegation {
+// 	proofs := make(map[string][]ucan.Delegation)
 
-	for _, del := range delegations {
-		if !isSessionProof(del) {
-			continue
-		}
+// 	for _, del := range delegations {
+// 		if !isSessionProof(del) {
+// 			continue
+// 		}
 
-		// Filter out expired session proofs
-		if exp := del.Expiration(); exp != nil && *exp < now {
-			continue
-		}
+// 		// Filter out expired session proofs
+// 		if exp := del.Expiration(); exp != nil && *exp < now {
+// 			continue
+// 		}
 
-		// Filter out session proofs that are not yet valid
-		if del.NotBefore() > now {
-			continue
-		}
+// 		// Filter out session proofs that are not yet valid
+// 		if nb := del.NotBefore(); nb != nil && *nb > now {
+// 			continue
+// 		}
 
-		caps := del.Capabilities()
-		if len(caps) == 0 {
-			continue
-		}
+// 		// Get the proof link from the typed capability
+// 		attestCap := match.Value()
+// 		proofCID := attestCap.Nb().Proof.String()
+// 		proofs[proofCID] = append(proofs[proofCID], del)
+// 	}
 
-		// Parse the capability using the ucan/attest parser to get typed access
-		source := validator.NewSource(caps[0], del)
-		match, err := ucancap.Attest.Match(source)
-		if err != nil {
-			// If we can't parse it, skip it
-			continue
-		}
-
-		// Get the proof link from the typed capability
-		attestCap := match.Value()
-		proofCID := attestCap.Nb().Proof.String()
-		proofs[proofCID] = append(proofs[proofCID], del)
-	}
-
-	return proofs
-}
+// 	return proofs
+// }
