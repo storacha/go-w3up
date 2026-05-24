@@ -44,9 +44,13 @@ func TestWorker(t *testing.T) {
 
 		require.Equal(t, int32(0), runs.Load(), "worker should not run before signal")
 		signalChan <- struct{}{}
-		e(t, func(t *assert.CollectT) { require.Equal(t, int32(1), runs.Load(), "worker should run once after signal") })
+		e(t, func(t *assert.CollectT) {
+			require.Equal(t, int32(1), runs.Load(), "worker should run once after signal")
+		})
 		signalChan <- struct{}{}
-		e(t, func(t *assert.CollectT) { require.Equal(t, int32(2), runs.Load(), "worker should run again after second signal") })
+		e(t, func(t *assert.CollectT) {
+			require.Equal(t, int32(2), runs.Load(), "worker should run again after second signal")
+		})
 
 		require.Equal(t, int32(0), finalizes.Load(), "finalize function should be called until the channel closes")
 		close(signalChan)
